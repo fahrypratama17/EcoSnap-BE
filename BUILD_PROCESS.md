@@ -70,9 +70,11 @@ Keberadaan screenshot, folder, file stub, atau dependency tidak membuktikan fitu
 
 ### 2.3 Posisi berikutnya
 
-Tahap aktif: GIT-01, menyimpan implementasi yang sudah ada pada chore/backend-baseline setelah strategi branch dicatat, lalu menyiapkan dev. Tidak mengulang implementasi akun/mitra/favorit yang sudah diuji. Seluruh perubahan lokal lama dipertahankan; app.exe diabaikan sebagai artefak build. Tidak ada push atau merge main pada tahap ini. Rencana branch ada di bagian 14.
+Tahap pengaturan Git pertama selesai: baseline source disimpan pada chore/backend-baseline, commit db51b4b; dev dibuat dari commit tersebut dan menjadi branch aktif. Strategi branch ada di bagian 14. main tetap pada scaffold 071320d. Tidak ada push atau merge main.
 
-Baseline mencakup fondasi HTTP/Firebase, akun GET/POST/PATCH, direktori/kategori/favorit mitra, migration 00001-00004, seed development, tes PostgreSQL portable, dan dokumentasi. Tes penuh PostgreSQL sebelumnya PASS; pemeriksaan baseline diulang sebelum commit. Batas runtime tetap: Supabase belum dimigrasi oleh AI, Firebase nyata/Android/deployment belum diuji. Fitur besar yang belum dibuat tetap tercantum pada backlog, terutama tarif/estimasi/setoran/QR/ledger/reward/AI/game dan fitur pendukung.
+GIT-01/GIT-02 selesai untuk penyimpanan dan penataan lokal, bukan penanda semua tes terbaru lolos. Pemeriksaan baseline terbaru gagal karena disk penuh: PostgreSQL tidak dapat checkpoint/menulis dan linker Go tidak dapat membuat output. go vet, formatting, pemeriksaan index, dan pola credential yang dicari lolos. Checkpoint full PASS sebelum pengaturan Git tetap riwayat. GIT-03 harus diselesaikan setelah ruang tersedia sebelum fitur baru/promotion.
+
+Server tes yang gagal sudah dihentikan. Folder cluster disposable dipertahankan karena cleanup ditolak automatic approval review (blocked by policy). app.exe diabaikan Git, source serta bukti desain tetap tersimpan. Tidak ada Supabase atau frontend yang diubah. Pekerjaan fitur berikutnya yang direncanakan adalah feat/deposit-estimation setelah verifikasi ulang.
 
 ## 3. Produk, sumber, dan kewenangan keputusan
 
@@ -366,8 +368,8 @@ Dependency: tidak ada. Hasil: anggota tim dapat memahami posisi proyek dan memil
 - [x] AUDIT-01 | SELESAI | Audit statis source FE/BE dan jawaban saat ini didokumentasikan pada docs/FRONTEND_BACKEND_AUDIT.md; inventaris 167 file pada docs/audit/source-inventory.json. Source aplikasi tidak berubah. Tes Go berbasis verifier pengganti lolos; runtime Android/layanan remote belum diperiksa. Pertanyaan yang belum dijawab tetap terbuka, bukan syarat agar pemeriksaan source dapat dicatat.
 - [ ] AUDIT-02 | MENUNGGU KEPUTUSAN | Lengkapi handoff AI/game, alur pelengkapan/persetujuan mitra, formula tarif, dan lifecycle voucher sesuai ASK pada audit; perbarui kontrak sebelum batch fitur terkait.
 
-- [ ] GIT-01 | BERJALAN | Simpan source, migration, tests, dan dokumentasi yang sudah ada pada chore/backend-baseline setelah pemeriksaan file/credential/artefak dan tes. Tidak mengarang sejarah branch fitur untuk kode lama. Selesai jika ada commit baseline lokal dan source tidak hilang.
-- [ ] GIT-02 | RENCANA | Buat dev dari commit baseline dan catat titik mulai beserta batas verifikasi. Tidak mempromosikan main atau push tanpa instruksi terkait. Selesai jika dev memuat baseline dan working tree bersih.
+- [x] GIT-01 | SELESAI | Baseline lokal db51b4b pada chore/backend-baseline menyimpan 145 perubahan file source/migration/tes/dokumen/bukti desain. Binary lokal diabaikan; pola credential yang diperiksa tidak ditemukan. Tes ulang gagal karena disk penuh dan tercatat pada GIT-03; bukan klaim release/test PASS.
+- [x] GIT-02 | SELESAI | dev dibuat dari baseline db51b4b dan menjadi branch aktif; catatan penyelesaian disimpan melalui commit dokumentasi di dev. main tetap 071320d; tidak ada push atau merge main. Working tree diperiksa setelah commit dokumentasi.
 
 - [ ] GIT-03 | RENCANA | Terhambat ruang penyimpanan.  Ulangi full suite PostgreSQL dan build setelah disk tersedia; baseline run 2026-11-20 gagal karena ruang, bukan dianggap PASS. Server tes sudah dihentikan; cleanup direktori ditolak automatic approval review. Harus lolos sebelum melanjutkan fitur/promotion main.
 
@@ -776,3 +778,11 @@ Pemeriksaan kali ini TIDAK semuanya lolos: go vet berhasil, tetapi build gagal m
 Cache build Go yang dapat dibuat ulang dibersihkan. Server cluster tes 7948d896d9b7408a92c78b1b5a17ba36 dihentikan secara immediate setelah fast shutdown gagal; ini hanya cluster disposable lokal. Pembersihan direktori cluster setelah status berhenti ditolak automatic approval review dengan alasan blocked by policy. Direktori dipertahankan, tidak dicoba dihapus melalui cara lain. Supabase/source/credential tidak dihapus.
 
 Baseline ini menyimpan pekerjaan agar tidak hilang; bukan promosi release/main atau bukti environment runtime siap. Verifikasi ulang penuh ditahan sampai ruang penyimpanan tersedia. Jangan mulai fitur baru atau menandai tes baseline PASS berdasarkan hasil parsial ini.
+
+### 14.5 Hasil langkah pertama
+
+- chore/backend-baseline menunjuk commit db51b4b (chore: capture backend implementation baseline).
+- dev dibuat dari db51b4b; commit berikutnya hanya mencatat hasil pengaturan Git ini.
+- main tetap pada 071320d, sehingga baseline belum dipromosikan sebagai release.
+- Seluruh rencana nama branch telah dicatat; feature branch lain belum dibuat.
+- Tidak ada push ke remote. Lanjutkan dari dev; GIT-03 (ruang dan tes ulang) masih terbuka sebelum feat/deposit-estimation.
