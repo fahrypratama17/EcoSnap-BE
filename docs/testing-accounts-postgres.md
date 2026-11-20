@@ -71,3 +71,17 @@ Jika environment tidak ada, test sengaja SKIP. Jika environment ada tetapi salah
 Catat output aktual pada BUILD_PROCESS.md sebelum menaikkan status task. Verifikasi migration development dengan Goose dan pengujian HTTP menggunakan Firebase ID token nyata masih diperlukan. Migration 00002 pada Supabase belum dijalankan oleh tahap ini.
 
 Fixture SQL integration kemudian diperluas hingga migration 00003, dengan urutan Down dibalik untuk semua migration. Ini belum membuktikan migration ketiga atau query mitra lolos; suite database tetap perlu dijalankan ketika PostgreSQL tes tersedia.
+
+## Guard ruang sebelum startup
+
+Kedua runner sekarang memanggil scripts/assert-test-storage.ps1 sebelum membuat container atau cluster. Volume repository, TEMP, dan GOCACHE diperiksa dengan batas awal konservatif 4 GiB per volume unik. Batas ini mencegah pengulangan kegagalan pada C sekitar 413 MB; bukan ukuran universal yang menjamin semua build/image/VM cukup. Kebutuhan volume penyimpanan Docker dan kebutuhan puncak build tetap harus diperhatikan.
+
+Jalankan uji helper tanpa membuat database/container:
+
+```powershell
+./scripts/test-storage-guard.ps1
+```
+
+Uji memeriksa jalur cukup dengan minimum satu byte dan jalur kurang dengan minimum yang melebihi kapasitas drive, tanpa membuat file besar. Pada pengecekan runner aktual terbaru, keduanya menolak ruang 0,39 GiB dengan ECOSNAP_TEST_DISK_LOW sebelum startup. Daftar cluster dan environment ECOSNAP_TEST_ADMIN_URL tidak berubah. Ini hasil guard, bukan hasil full suite PostgreSQL.
+
+Baseline db51b4b tetap dipakai. Sediakan ruang, jalankan runner penuh, dan perbarui GIT-03 setelah hasil nyata PASS; tidak perlu mengulang pembuatan baseline Git.

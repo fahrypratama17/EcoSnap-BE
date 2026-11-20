@@ -1,6 +1,8 @@
 param([string]$Image = 'postgres:17-alpine')
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'assert-test-storage.ps1')
+Assert-EcoSnapRunnerStorage -RepoRoot (Split-Path -Parent $PSScriptRoot)
 $containerId = $null
 $previousTestUrl = $env:ECOSNAP_TEST_ADMIN_URL
 $previousMaxProcs = $env:GOMAXPROCS

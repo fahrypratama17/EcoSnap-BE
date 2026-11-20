@@ -70,11 +70,11 @@ Keberadaan screenshot, folder, file stub, atau dependency tidak membuktikan fitu
 
 ### 2.3 Posisi berikutnya
 
-Tahap pengaturan Git pertama selesai: baseline source disimpan pada chore/backend-baseline, commit db51b4b; dev dibuat dari commit tersebut dan menjadi branch aktif. Strategi branch ada di bagian 14. main tetap pada scaffold 071320d. Tidak ada push atau merge main.
+Baseline tidak perlu dibuat ulang: chore/backend-baseline tetap db51b4b dan dev tetap 5f05499, dengan baseline merupakan ancestor dev. Selisih kedua branch hanya BUILD_PROCESS.md; source implementasi sama. Pemeriksaan dimulai dari working tree bersih.
 
-GIT-01/GIT-02 selesai untuk penyimpanan dan penataan lokal, bukan penanda semua tes terbaru lolos. Pemeriksaan baseline terbaru gagal karena disk penuh: PostgreSQL tidak dapat checkpoint/menulis dan linker Go tidak dapat membuat output. go vet, formatting, pemeriksaan index, dan pola credential yang dicari lolos. Checkpoint full PASS sebelum pengaturan Git tetap riwayat. GIT-03 harus diselesaikan setelah ruang tersedia sebelum fitur baru/promotion.
+Pemeriksaan ruang terbaru menemukan sekitar 413 MB (0,39 GiB) pada C, sehingga GIT-03 belum dapat ditutup. Agar run penuh tidak mengulangi disk-full, branch chore/test-runner-preflight dibuat dari dev. Helper scripts/assert-test-storage.ps1 kini memeriksa volume repository, TEMP, dan GOCACHE sebelum startup kedua runner; batas awal konservatif 4 GiB per volume. Ini guard minimum, bukan jaminan kebutuhan puncak seluruh environment selalu cukup.
 
-Server tes yang gagal sudah dihentikan. Folder cluster disposable dipertahankan karena cleanup ditolak automatic approval review (blocked by policy). app.exe diabaikan Git, source serta bukti desain tetap tersimpan. Tidak ada Supabase atau frontend yang diubah. Pekerjaan fitur berikutnya yang direncanakan adalah feat/deposit-estimation setelah verifikasi ulang.
+Uji helper ruang cukup/kurang PASS; syntax PowerShell PASS; kedua runner menolak kondisi ruang aktual sebelum cluster/container dibuat. Daftar cluster dan environment database tes tidak berubah. Suite Go/PostgreSQL penuh tidak dijalankan ulang pada kondisi ini. Tidak ada source aplikasi, migration, Supabase, atau frontend diubah. Fitur deposit-estimation belum dibuat; lanjut setelah ruang tersedia dan GIT-03 benar-benar lolos.
 
 ## 3. Produk, sumber, dan kewenangan keputusan
 
@@ -372,6 +372,8 @@ Dependency: tidak ada. Hasil: anggota tim dapat memahami posisi proyek dan memil
 - [x] GIT-02 | SELESAI | dev dibuat dari baseline db51b4b dan menjadi branch aktif; catatan penyelesaian disimpan melalui commit dokumentasi di dev. main tetap 071320d; tidak ada push atau merge main. Working tree diperiksa setelah commit dokumentasi.
 
 - [ ] GIT-03 | RENCANA | Terhambat ruang penyimpanan.  Ulangi full suite PostgreSQL dan build setelah disk tersedia; baseline run 2026-11-20 gagal karena ruang, bukan dianggap PASS. Server tes sudah dihentikan; cleanup direktori ditolak automatic approval review. Harus lolos sebelum melanjutkan fitur/promotion main.
+
+- [x] GIT-04 | SELESAI | Guard ruang untuk kedua runner tersedia pada chore/test-runner-preflight. Helper menguji kondisi cukup/kurang; runner portable/Docker pada ruang aktual menolak sebelum startup tanpa perubahan environment/cluster. Ini tidak menyelesaikan GIT-03 atau menggantikan full test.
 
 ### M1. Fondasi aplikasi
 
@@ -786,3 +788,9 @@ Baseline ini menyimpan pekerjaan agar tidak hilang; bukan promosi release/main a
 - main tetap pada 071320d, sehingga baseline belum dipromosikan sebagai release.
 - Seluruh rencana nama branch telah dicatat; feature branch lain belum dibuat.
 - Tidak ada push ke remote. Lanjutkan dari dev; GIT-03 (ruang dan tes ulang) masih terbuka sebelum feat/deposit-estimation.
+
+### 14.6 Pemeriksaan ulang baseline dan guard ruang
+
+Permintaan pemilik: periksa apakah baseline perlu dibuat lagi dan lanjut jika siap. Hasil: baseline Git masih lengkap dan tidak perlu direkreasi. git merge-base --is-ancestor chore/backend-baseline dev exit 0; git diff --name-only chore/backend-baseline..dev hanya BUILD_PROCESS.md.
+
+Ruang awal sekitar 413.106.176 byte. Tidak dilakukan penghapusan cache/folder atau pengulangan tes yang menulis database pada kondisi ini. Sebagai perbaikan prasyarat, chore/test-runner-preflight menambahkan helper ruang dan skrip uji tanpa alokasi besar. Kedua runner memeriksa drive repo/TEMP/cache Go sebelum melakukan operasi startup. GIT-03 tetap terbuka sampai full suite dan build berhasil dengan ruang memadai. Tidak ada feature branch deposit-estimation, merge dev/main, atau push pada tahap ini.

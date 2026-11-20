@@ -1,5 +1,7 @@
 param([Parameter(Mandatory = $true)][string]$PostgresBin)
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'assert-test-storage.ps1')
+Assert-EcoSnapRunnerStorage -RepoRoot (Split-Path -Parent $PSScriptRoot)
 $bin = (Resolve-Path -LiteralPath $PostgresBin).Path
 foreach ($name in @('initdb.exe','pg_ctl.exe')) {
     if (-not (Test-Path -LiteralPath (Join-Path $bin $name))) { throw "Binary tidak tersedia: $name" }
