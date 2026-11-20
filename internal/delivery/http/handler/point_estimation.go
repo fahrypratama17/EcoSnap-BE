@@ -22,6 +22,7 @@ type PointEstimationHandler struct {
 func NewPointEstimationHandler(estimates *service.PointEstimationService) *PointEstimationHandler {
 	return &PointEstimationHandler{estimates: estimates}
 }
+
 // decodeStrictJSON accepts exactly one JSON object without unknown fields and
 // writes the error response itself when it returns false.
 func decodeStrictJSON(w http.ResponseWriter, r *http.Request, dst any, invalidMessage string) bool {

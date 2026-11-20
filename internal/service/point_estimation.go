@@ -61,6 +61,7 @@ func weightGrams(raw string) (int64, error) {
 	}
 	return grams, nil
 }
+
 // estimateLines holds validated items with weights in grams. Estimates and
 // deposits share it so both accept and reject exactly the same input.
 type estimateLines struct {
