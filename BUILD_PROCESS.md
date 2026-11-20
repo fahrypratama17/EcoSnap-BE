@@ -124,6 +124,8 @@ Seluruh cakupan yang terlihat di laporan/UI tetap dicatat. Urutan pengerjaan di 
 | D-15 | Pendaftaran mitra diperbolehkan, QR dilarang sampai data lengkap dan disetujui. | DISEPAKATI 2026-11-17 | Role mitra bukan izin otomatis bertransaksi. Alur pelengkapan/persetujuan masih Q-04. |
 | D-16 | Nilai tarif awal boleh memakai contoh yang nanti diubah tim. | DISEPAKATI 2026-11-17 | Seed deterministik data/seeders/dev/point_rates.json: plastic 100, paper 80, metal 150, glass 60 poin/kg. Mekanisme demo mengikuti docs/api/point-estimates.md; tarif usaha final/pengelolaan masih Q-02. |
 | D-17 | Estimasi menjumlahkan hasil semua item terlebih dahulu, lalu membulatkan ke bawah sekali pada total poin. | DISEPAKATI pemilik | Contoh 0,6 + 0,6 menghasilkan 1 poin. Jangan membulatkan per item. Tarif tetap data contoh editable sesuai D-16. |
+| D-18 | QR setoran bersifat bearer: siapa pun yang mengklaim pertama kali mendapatkan poin (menjawab Q-16). | DISEPAKATI pemilik 2026-11-20 | Penerbitan QR mengembalikan warning agar mitra hanya menunjukkan QR kepada penyetor. Klaim satu kali, atomik dengan ledger dan wallet. Hanya akun role user active yang dapat mengklaim. |
+| D-19 | Setelah QR terbit, setoran terkunci: tidak dapat diedit atau dibatalkan (menjawab bagian Q-08). Reissue tetap boleh selama belum diklaim. | DISEPAKATI pemilik 2026-11-20 | Koreksi/pengembalian poin hanya melalui sistem banding di masa depan (Q-17). Penolakan fisik dilakukan sebelum setoran dibuat. |
 
 D-05 menyelesaikan pertanyaan countdown 04:59 pada mockup. D-04 menyelesaikan pertanyaan jumlah jenis sampah per setoran, tetapi perubahan schema masih perlu dibuat. D-06 menetapkan reset masa berlaku; model riwayat token belum dipilih.
 
@@ -159,7 +161,7 @@ Dependency task merujuk ID Q berikut. Anggota tim boleh melanjutkan bagian yang 
 | Q-05 | Voucher simulasi dengan sistem nyata sudah dikonfirmasi. Cara pakai, stok/unlimited, expiry, cancel, dan refund masih terbuka. | Pemilik + tim | Lifecycle redemption lengkap. |
 | Q-06 | Model/provider AI, kategori didukung, lokasi inference, confidence/hasil tidak dikenali, biaya, timeout, dan mode sync/async. | PIC foto sampah + tim | Fitur identifikasi nyata dan kebutuhan worker. |
 | Q-07 | Jenis misi, XP/bonus poin/badge, syarat selesai/klaim, replay game, batas farming, reset periode, dan soal Eco Quiz. | PIC gamifikasi + tim | Games/misi/leaderboard final. |
-| Q-08 | Kebijakan perubahan setoran setelah QR terbit, pencatatan penolakan fisik, pembatalan, serta histori semua penerbitan QR. | PIC transaksi + tim | State transition dan model audit setoran/QR. |
+| Q-08 | Sebagian dijawab D-19 (terkunci setelah QR terbit; histori semua penerbitan QR disimpan). Sisa: kebijakan setoran created yang tidak pernah diberi QR. | PIC transaksi + tim | Pembersihan setoran terbengkalai. |
 | Q-09 | Siapa menyediakan/memublikasikan artikel, ide reuse, kategori, soal, dan reward selama admin ditunda. | Pemilik + tim | Konten demo yang dapat dipertanggungjawabkan. |
 | Q-10 | Notifikasi dalam aplikasi atau push; preferensi terpisah; proses pengiriman dan retensi. | Tim Android + backend | Firebase messaging/worker notifikasi; jangan menganggapnya otomatis termasuk Firebase Auth. |
 | Q-11 | Periode, timezone, tie-break peringkat, visibilitas, dan kapan leaderboard diperbarui. | Tim | Perhitungan leaderboard. |
@@ -167,7 +169,8 @@ Dependency task merujuk ID Q berikut. Anggota tim boleh melanjutkan bagian yang 
 | Q-13 | Lampiran media: ukuran/jenis/jumlah, retensi dan penghapusan; dukungan email kontak opsional; penanganan laporan/masukan. | Tim | Kontrak upload dan support lengkap. |
 | Q-14 | Rentang laporan, definisi metrik, timezone, isi PDF, dan apakah pembuatan PDF perlu background job. | Tim | Laporan final. |
 | Q-15 | Hosting Go, akses jaringan, domain/TLS, backup/restore, dan kelayakan VPS bekas penelitian. | Pemilik + tim | Deployment publik. Docker bersifat opsional. |
-| Q-16 | Cara penentuan penerima setoran: QR bearer untuk pengguna pertama seperti laporan, atau terikat pengguna sejak dibuat; kebutuhan anti-penyalahgunaan tambahan. | Tim | Finalisasi keamanan alur klaim sebelum demo transaksi. |
+| Q-16 | Dijawab D-18: QR bearer, pengklaim pertama. | Pemilik | - |
+| Q-17 | Sistem banding: siapa mengajukan, siapa memutuskan, dan bagaimana poin yang sudah dikreditkan dikoreksi (ledger debit, bukan menghapus kredit). | Pemilik + tim | Koreksi setoran setelah QR terbit/klaim. |
 
 Usulan yang dapat disiapkan tanpa mengunci jawaban: data contoh tarif/soal/reward diberi label development, kontrak provider AI dibuat setelah bentuk output ditentukan, dan akun mitra demo dapat disiapkan melalui proses seed yang terdokumentasi. Akun biasa yang mendaftar tetap tidak boleh otomatis memperoleh hak mitra terverifikasi.
 
@@ -435,11 +438,11 @@ Dependency: otorisasi akun/mitra, migration transaksi, Q-02/Q-03/Q-08/Q-16. Ini 
 - [ ] DEPOSIT-01 | MENUNGGU KEPUTUSAN | Definisikan kontrak multi-item, tarif aktif, pembulatan, total, penerimaan/penolakan, dan aturan edit. Selesai jika contoh plastik+kertas+logam dihitung dengan hasil yang dapat diuji bersama tim.
 - [x] DEPOSIT-02 | SELESAI | Backend estimator multi-item dan tarif demo lulus HTTP/service/PostgreSQL serta CLI seed; tidak mengubah wallet, tarif tidak tersedia menghasilkan 409. Kontrak docs/api/point-estimates.md. Server setoran memakai fungsi parse/hitung yang sama dan tes PostgreSQL membuktikan total setoran = hasil estimator (DEPOSIT-03).
 - [x] DEPOSIT-03 | SELESAI | POST /api/v1/deposits dan GET /api/v1/deposits/{id} untuk mitra active dengan lokasi verified. Total dihitung server dari tarif dalam transaksi yang sama, snapshot item tersimpan, Idempotency-Key wajib (replay/konflik/8 request paralel → satu setoran), berat tidak sah dan material tidak diterima ditolak tanpa baris, mitra lain menerima 404, wallet tidak berubah. Status hanya created; edit/batal menunggu Q-08. Kontrak docs/api/deposits.md; bukti docs/test-results/deposits-2026-11-20.md.
-- [ ] QR-01 | RENCANA | Implementasikan penerbitan token QR yang tidak dapat ditebak, representasi hash di database, expiry 10 menit, serta response yang diperlukan Android. Selesai jika token tidak memuat kewenangan/nominal yang dipercaya dari client dan log tidak merekam token mentah.
-- [ ] QR-02 | RENCANA | Implementasikan reissue untuk transaksi yang memenuhi syarat. Selesai jika token baru berlaku 10 menit sejak reissue dan token lama ditolak, termasuk saat reissue bersaing dengan klaim.
-- [ ] QR-03 | RENCANA | Implementasikan preview tanpa mutasi saldo/status pemakaian. Selesai jika data mitra, item, berat, poin, dan expiry dapat ditampilkan; cancel preview tidak membatalkan setoran.
-- [ ] CLAIM-01 | RENCANA | Implementasikan klaim atomik dengan penerima dari identitas terverifikasi. Selesai jika setoran, token, ledger, dan wallet konsisten; dua pemohon paralel menghasilkan satu penerima dan satu pemberian poin.
-- [ ] CLAIM-02 | RENCANA | Implementasikan idempotency dan pemeriksaan hasil klaim. Selesai jika retry oleh pengguna yang sama tidak menggandakan poin, klaim akun lain ditolak, dan hasil timeout dapat diketahui kembali.
+- [x] QR-01 | SELESAI | POST /api/v1/deposits/{id}/qr: token acak 32 byte base64url, hanya SHA-256 disimpan, expiry 10 menit waktu server, warning bearer (D-18) di response. Token tidak dibawa di URL/log. Bukti docs/test-results/deposit-qr-claims-2026-11-20.md.
+- [x] QR-02 | SELESAI | Reissue lewat endpoint yang sama: token lama revoked, token baru 10 menit, histori tersimpan, ditolak setelah klaim; race reissue vs klaim diuji 5 putaran.
+- [x] QR-03 | SELESAI | POST /api/v1/deposit-claims/preview tanpa mutasi: mitra, item, berat, poin, expiry.
+- [x] CLAIM-01 | SELESAI | POST /api/v1/deposit-claims: user active pertama (D-18) mendapat poin; claim, ledger, wallet, token, status satu transaksi; 8 klaim paralel → satu penerima, satu kredit.
+- [x] CLAIM-02 | SELESAI | Retry pengklaim yang sama → 200 hasil sama tanpa kredit ulang; pengklaim lain → 409; expired/revoked/invalid dibedakan.
 - [ ] WALLET-01 | RENCANA | Implementasikan saldo/ledger/riwayat setoran pengguna dan mitra dengan ownership, filter, pagination. Selesai jika angka riwayat merekonsiliasi saldo dan satu transaksi tidak tampil sebagai pemberian ganda.
 - [ ] DEPOSIT-04 | RENCANA | Integrasikan seluruh alur Android mitra dan pengguna, termasuk state invalid/expired/used/cancelled/pending hasil. Selesai jika demo dua akun menyelesaikan setoran dan memverifikasi satu kredit ledger.
 - [ ] DEPOSIT-05 | RENCANA | Jalankan skenario integritas pada bagian 11 terhadap PostgreSQL. Selesai jika hasil race, expiry boundary, reissue, retry, dan rollback dicatat bersama constraint yang menjaganya.
@@ -811,3 +814,7 @@ go vet -p 1 -mod=readonly ./... dan go build -p 1 -mod=readonly ./... exit 0. go
 Pemilik meminta langsung menerapkan DEPOSIT-03 setelah rencana dijelaskan. feat/deposit-creation dibuat dari e41b1b1. Estimator direfaktor menjadi parseEstimateItems/priceEstimate dan selectRatesTx agar setoran memakai aturan validasi, pemilihan tarif, dan pembulatan yang sama. Migration 00006 menambah deposits/deposit_items (snapshot, CHECK hasil persis, unique partner+key). Keputusan sementara yang tidak mengunci Q-08/Q-16: status hanya created, tanpa endpoint edit, tanpa penerima setoran, detail hanya untuk mitra pemilik. Idempotency-Key wajib karena retry Android tidak boleh membuat setoran ganda.
 
 Full suite PostgreSQL portable exit 0 tanpa SKIP termasuk TestDepositIntegration (6 skenario) dan TestDepositHTTP; migration 00001-00006 Up/Down/reapply lulus; go vet exit 0. Supabase/Firebase nyata/Android belum diuji. Langkah berikutnya: putuskan Q-08 (perubahan/pembatalan/penolakan fisik) dan Q-16 (QR bearer atau terikat pengguna), lalu QR-01 penerbitan token 10 menit.
+
+### Checkpoint QR bearer dan klaim 2026-11-20
+
+Pemilik memutuskan D-18 (QR bearer, pengklaim pertama, cukup warning) dan D-19 (setoran terkunci setelah QR terbit; koreksi lewat banding Q-17). Enum deposit_status pada 00006 diperluas (belum pernah diterapkan ke Supabase); 00007 menambah deposit_qr_tokens, deposit_claims, point_ledger. Full suite PostgreSQL portable exit 0, 0 SKIP, termasuk TestDepositQRClaimIntegration (8 skenario) dan TestDepositQRHTTP. Belum: Android scan, Firebase/Supabase nyata, WALLET-01 riwayat, banding. Langkah berikut: WALLET-01 (saldo/riwayat ledger) atau REWARD-01/02.

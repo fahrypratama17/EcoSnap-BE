@@ -1,7 +1,7 @@
 -- +goose Up
--- Only the creation state exists until Q-08 decides QR, cancellation, and
--- physical-rejection transitions. New states are added by later migrations.
-CREATE TYPE public.deposit_status AS ENUM ('created');
+-- created -> qr_issued (locked, D-19) -> claimed. Reissue keeps qr_issued.
+-- Migration belum diterapkan ke Supabase saat status ditambahkan.
+CREATE TYPE public.deposit_status AS ENUM ('created','qr_issued','claimed');
 CREATE TABLE public.deposits (
  id UUID PRIMARY KEY,
  partner_id UUID NOT NULL REFERENCES public.partners(id),

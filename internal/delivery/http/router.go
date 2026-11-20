@@ -44,3 +44,10 @@ func RegisterDepositRoutes(mux *http.ServeMux, verifier middleware.TokenVerifier
 	mux.Handle("POST /api/v1/deposits", protect(http.HandlerFunc(deposits.Create)))
 	mux.Handle("GET /api/v1/deposits/{depositID}", protect(http.HandlerFunc(deposits.Detail)))
 }
+
+func RegisterDepositQRRoutes(mux *http.ServeMux, verifier middleware.TokenVerifier, qr *handler.DepositQRHandler) {
+	protect := middleware.RequireAuth(verifier)
+	mux.Handle("POST /api/v1/deposits/{depositID}/qr", protect(http.HandlerFunc(qr.Issue)))
+	mux.Handle("POST /api/v1/deposit-claims/preview", protect(http.HandlerFunc(qr.Preview)))
+	mux.Handle("POST /api/v1/deposit-claims", protect(http.HandlerFunc(qr.Claim)))
+}

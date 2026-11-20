@@ -10,12 +10,19 @@ import (
 	"github.com/fahrypratama17/EcoSnap-BE/domain/entity"
 	"github.com/fahrypratama17/EcoSnap-BE/internal/repository/postgres"
 	"github.com/fahrypratama17/EcoSnap-BE/internal/service"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func TestDepositIntegration(t *testing.T) {
-	pool := accountTestDatabase(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
+const (
+	plastic = "10000000-0000-4000-8000-000000000001"
+	paper   = "10000000-0000-4000-8000-000000000002"
+	glass   = "10000000-0000-4000-8000-000000000004"
+)
+
+// depositFixture: verified owner-a (plastic local 150, paper global 80),
+// verified owner-b, pending owner-pending, and users plain-user/user-2/user-3.
+func depositFixture(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
 	accounts := postgres.NewAccountRepository(pool)
 	mitra := service.AccountRegistration{Role: "mitra", FullName: "Owner", Phone: "08123456789", BusinessName: "Tunas", BusinessCategory: "Bank sampah"}
 	for _, uid := range []string{"owner-a", "owner-b", "owner-pending"} {
@@ -23,12 +30,11 @@ func TestDepositIntegration(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, _, err := accounts.Register(ctx, "plain-user", "user@example.test", service.AccountRegistration{Role: "user", FullName: "User", Phone: "08123456789"}); err != nil {
-		t.Fatal(err)
+	for _, uid := range []string{"plain-user", "user-2", "user-3"} {
+		if _, _, err := accounts.Register(ctx, uid, uid+"@example.test", service.AccountRegistration{Role: "user", FullName: "User", Phone: "08123456789"}); err != nil {
+			t.Fatal(err)
+		}
 	}
-	const plastic = "10000000-0000-4000-8000-000000000001"
-	const paper = "10000000-0000-4000-8000-000000000002"
-	const glass = "10000000-0000-4000-8000-000000000004"
 	_, err := pool.Exec(ctx, `INSERT INTO public.waste_categories(id,name,slug) VALUES
  ('10000000-0000-4000-8000-000000000001','Plastik','plastic'),
  ('10000000-0000-4000-8000-000000000002','Kertas','paper'),
@@ -48,6 +54,13 @@ func TestDepositIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestDepositIntegration(t *testing.T) {
+	pool := accountTestDatabase(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	depositFixture(ctx, t, pool)
 	deposits := service.NewDepositService(postgres.NewDepositRepository(pool))
 	estimates := service.NewPointEstimationService(postgres.NewPointRateRepository(pool))
 	request := entity.DepositCreateRequest{Items: []entity.PointEstimateInput{{CategoryID: plastic, WeightKG: "2.5"}, {CategoryID: paper, WeightKG: "1"}}}

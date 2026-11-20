@@ -32,24 +32,7 @@ func (r *DepositRepository) CreateDeposit(ctx context.Context, in service.NewDep
 		defer cancel()
 		_ = tx.Rollback(cleanup)
 	}()
-	// Share locks keep the account and partner from being suspended between
-	// this authorization check and the insert.
-	var role, status string
-	err = tx.QueryRow(ctx, `SELECT role::text,status::text FROM public.accounts WHERE firebase_uid=$1 FOR SHARE`, in.CreatorUID).Scan(&role, &status)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return out, false, service.ErrAccountNotFound
-	}
-	if err != nil {
-		return out, false, err
-	}
-	if status != "active" {
-		return out, false, service.ErrAccountForbidden
-	}
-	var partner, partnerStatus string
-	err = tx.QueryRow(ctx, `SELECT id::text,status::text FROM public.partners WHERE mitra_uid=$1 FOR SHARE`, in.CreatorUID).Scan(&partner, &partnerStatus)
-	if errors.Is(err, pgx.ErrNoRows) || (err == nil && (role != "mitra" || partnerStatus != "verified")) {
-		return out, false, service.ErrDepositForbidden
-	}
+	partner, err := authorizeMitraTx(ctx, tx, in.CreatorUID)
 	if err != nil {
 		return out, false, err
 	}
@@ -64,7 +47,7 @@ func (r *DepositRepository) CreateDeposit(ctx context.Context, in service.NewDep
 		if existingHash != in.RequestHash {
 			return out, false, service.ErrDepositConflict
 		}
-		out, err = loadDeposit(ctx, tx, existing, in.CreatorUID)
+		out, err = loadDeposit(ctx, tx, existing, &in.CreatorUID)
 		return out, false, err
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
@@ -109,16 +92,39 @@ func (r *DepositRepository) CreateDeposit(ctx context.Context, in service.NewDep
 	return out, true, nil
 }
 
-func (r *DepositRepository) DepositForMitra(ctx context.Context, uid, depositID string) (service.DepositRecord, error) {
-	return loadDeposit(ctx, r.pool, depositID, uid)
+// authorizeMitraTx returns the caller's verified partner. Share locks keep the
+// account and partner from being suspended until the caller's tx ends.
+func authorizeMitraTx(ctx context.Context, tx pgx.Tx, uid string) (string, error) {
+	var role, status string
+	err := tx.QueryRow(ctx, `SELECT role::text,status::text FROM public.accounts WHERE firebase_uid=$1 FOR SHARE`, uid).Scan(&role, &status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", service.ErrAccountNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	if status != "active" {
+		return "", service.ErrAccountForbidden
+	}
+	var partner, partnerStatus string
+	err = tx.QueryRow(ctx, `SELECT id::text,status::text FROM public.partners WHERE mitra_uid=$1 FOR SHARE`, uid).Scan(&partner, &partnerStatus)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && (role != "mitra" || partnerStatus != "verified")) {
+		return "", service.ErrDepositForbidden
+	}
+	return partner, err
 }
 
-// loadDeposit returns the deposit only when its partner belongs to uid; other
-// callers get not-found so deposit IDs do not reveal another partner's data.
-func loadDeposit(ctx context.Context, q depositQuerier, depositID, uid string) (service.DepositRecord, error) {
+func (r *DepositRepository) DepositForMitra(ctx context.Context, uid, depositID string) (service.DepositRecord, error) {
+	return loadDeposit(ctx, r.pool, depositID, &uid)
+}
+
+// loadDeposit returns the deposit with its item snapshot. With owner set, only
+// that mitra's deposits are visible; others get not-found so deposit IDs do
+// not reveal another partner's data. owner=nil is for QR holders (D-18).
+func loadDeposit(ctx context.Context, q depositQuerier, depositID string, owner *string) (service.DepositRecord, error) {
 	var out service.DepositRecord
 	err := q.QueryRow(ctx, `SELECT d.id::text,d.partner_id::text,d.status::text,d.total_weight_grams,d.total_points,d.uses_demo_rates,d.rates_as_of,d.created_at
- FROM public.deposits d JOIN public.partners p ON p.id=d.partner_id WHERE d.id=$1::uuid AND p.mitra_uid=$2`, depositID, uid).
+ FROM public.deposits d JOIN public.partners p ON p.id=d.partner_id WHERE d.id=$1::uuid AND ($2::text IS NULL OR p.mitra_uid=$2)`, depositID, owner).
 		Scan(&out.ID, &out.PartnerID, &out.Status, &out.TotalGrams, &out.TotalPoint, &out.UsesDemoRates, &out.RatesAsOf, &out.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return out, service.ErrDepositNotFound
