@@ -38,3 +38,9 @@ func RegisterFavoriteRoutes(mux *http.ServeMux, verifier middleware.TokenVerifie
 func RegisterPointEstimateRoutes(mux *http.ServeMux, verifier middleware.TokenVerifier, estimates *handler.PointEstimationHandler) {
 	mux.Handle("POST /api/v1/point-estimates", middleware.RequireAuth(verifier)(http.HandlerFunc(estimates.Estimate)))
 }
+
+func RegisterDepositRoutes(mux *http.ServeMux, verifier middleware.TokenVerifier, deposits *handler.DepositHandler) {
+	protect := middleware.RequireAuth(verifier)
+	mux.Handle("POST /api/v1/deposits", protect(http.HandlerFunc(deposits.Create)))
+	mux.Handle("GET /api/v1/deposits/{depositID}", protect(http.HandlerFunc(deposits.Detail)))
+}

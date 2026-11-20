@@ -39,6 +39,19 @@ func (r *PointRateRepository) SelectRates(ctx context.Context, partner *string, 
 			return out, service.ErrPartnerNotFound
 		}
 	}
+	if out.Rates, err = selectRatesTx(ctx, tx, partner, ids, out.AsOf); err != nil {
+		return out, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
+// selectRatesTx reads active tariffs and accepted materials inside the
+// caller's transaction so estimates and deposits use one selection rule.
+func selectRatesTx(ctx context.Context, tx pgx.Tx, partner *string, ids []string, asOf time.Time) (map[string]service.PointTariff, error) {
+	out := make(map[string]service.PointTariff, len(ids))
 	rows, err := tx.Query(ctx, `SELECT c.id::text,c.name,COALESCE(rate.id::text,''),COALESCE((rate.points_per_kg*100)::bigint,0),COALESCE(rate.is_demo,false),
  ($2::uuid IS NULL OR EXISTS(SELECT 1 FROM public.partner_accepted_waste aw WHERE aw.partner_id=$2::uuid AND aw.category_id=c.id))
  FROM public.waste_categories c
@@ -47,27 +60,23 @@ func (r *PointRateRepository) SelectRates(ctx context.Context, partner *string, 
  WHERE r.category_id=c.id AND (r.partner_id IS NULL OR r.partner_id=$2::uuid)
  AND r.active_from<=$3 AND (r.active_until IS NULL OR $3<r.active_until)
  ORDER BY (r.partner_id IS NOT NULL) DESC,r.active_from DESC,r.id LIMIT 1
- ) rate ON true WHERE c.id=ANY($1::uuid[])`, ids, partner, out.AsOf)
+ ) rate ON true WHERE c.id=ANY($1::uuid[])`, ids, partner, asOf)
 	if err != nil {
-		return out, err
+		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var rate service.PointTariff
 		if err = rows.Scan(&rate.CategoryID, &rate.Name, &rate.RateID, &rate.RateHundredths, &rate.IsDemo, &rate.Accepted); err != nil {
-			return out, err
+			return nil, err
 		}
-		out.Rates[rate.CategoryID] = rate
+		out[rate.CategoryID] = rate
 	}
 	if err = rows.Err(); err != nil {
-		return out, err
+		return nil, err
 	}
-	rows.Close()
-	if len(out.Rates) != len(ids) {
-		return out, service.ErrWasteCategoryNotFound
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return out, err
+	if len(out) != len(ids) {
+		return nil, service.ErrWasteCategoryNotFound
 	}
 	return out, nil
 }

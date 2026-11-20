@@ -22,37 +22,43 @@ type PointEstimationHandler struct {
 func NewPointEstimationHandler(estimates *service.PointEstimationService) *PointEstimationHandler {
 	return &PointEstimationHandler{estimates: estimates}
 }
-func (h *PointEstimationHandler) Estimate(w http.ResponseWriter, r *http.Request) {
+// decodeStrictJSON accepts exactly one JSON object without unknown fields and
+// writes the error response itself when it returns false.
+func decodeStrictJSON(w http.ResponseWriter, r *http.Request, dst any, invalidMessage string) bool {
 	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || media != "application/json" {
 		response.Error(w, 415, "unsupported_media_type", "Gunakan application/json.")
-		return
-	}
-	if r.URL.RawQuery != "" {
-		estimateError(w, service.ErrInvalidEstimate)
-		return
+		return false
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 16*1024)
-	var in entity.PointEstimateRequest
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
-	if err = decoder.Decode(&in); err == nil {
+	if err = decoder.Decode(dst); err == nil {
 		var extra any
-		if next := decoder.Decode(&extra); next != io.EOF {
-			if next != nil {
-				err = next
-			} else {
-				err = service.ErrInvalidEstimate
-			}
+		if next := decoder.Decode(&extra); next == nil {
+			err = errors.New("trailing JSON")
+		} else if next != io.EOF {
+			err = next
 		}
 	}
 	if err != nil {
 		var large *http.MaxBytesError
 		if errors.As(err, &large) {
 			response.Error(w, 413, "body_too_large", "Body terlalu besar.")
-			return
+			return false
 		}
-		response.Error(w, 400, "invalid_request", "Kirim satu objek JSON estimasi yang valid.")
+		response.Error(w, 400, "invalid_request", invalidMessage)
+		return false
+	}
+	return true
+}
+func (h *PointEstimationHandler) Estimate(w http.ResponseWriter, r *http.Request) {
+	if r.URL.RawQuery != "" {
+		estimateError(w, service.ErrInvalidEstimate)
+		return
+	}
+	var in entity.PointEstimateRequest
+	if !decodeStrictJSON(w, r, &in, "Kirim satu objek JSON estimasi yang valid.") {
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)

@@ -61,50 +61,51 @@ func weightGrams(raw string) (int64, error) {
 	}
 	return grams, nil
 }
-func (s *PointEstimationService) Estimate(ctx context.Context, in entity.PointEstimateRequest) (entity.PointEstimate, error) {
-	var empty entity.PointEstimate
-	if len(in.Items) < 1 || len(in.Items) > 50 {
-		return empty, ErrInvalidEstimate
+// estimateLines holds validated items with weights in grams. Estimates and
+// deposits share it so both accept and reject exactly the same input.
+type estimateLines struct {
+	ids        []string
+	grams      []int64
+	totalGrams int64
+}
+
+func parseEstimateItems(items []entity.PointEstimateInput) (estimateLines, error) {
+	var out estimateLines
+	if len(items) < 1 || len(items) > 50 {
+		return out, ErrInvalidEstimate
 	}
-	var selectedPartner *string
-	if in.PartnerID != nil {
-		if !partnerID.MatchString(*in.PartnerID) {
-			return empty, ErrInvalidEstimate
-		}
-		id := strings.ToLower(*in.PartnerID)
-		selectedPartner = &id
-	}
-	ids := make([]string, 0, len(in.Items))
-	weights := make([]int64, 0, len(in.Items))
-	seen := map[string]bool{}
-	var totalGrams int64
-	for _, item := range in.Items {
+	out.ids = make([]string, 0, len(items))
+	out.grams = make([]int64, 0, len(items))
+	seen := make(map[string]bool, len(items))
+	for _, item := range items {
 		if !partnerID.MatchString(item.CategoryID) {
-			return empty, ErrInvalidEstimate
+			return out, ErrInvalidEstimate
 		}
 		id := strings.ToLower(item.CategoryID)
 		if seen[id] {
-			return empty, ErrInvalidEstimate
+			return out, ErrInvalidEstimate
 		}
 		seen[id] = true
 		grams, err := weightGrams(item.WeightKG)
 		if err != nil {
-			return empty, err
+			return out, err
 		}
-		totalGrams += grams
-		if totalGrams > 1000000 {
-			return empty, ErrInvalidEstimate
+		out.totalGrams += grams
+		if out.totalGrams > 1000000 {
+			return out, ErrInvalidEstimate
 		}
-		ids = append(ids, id)
-		weights = append(weights, grams)
+		out.ids = append(out.ids, id)
+		out.grams = append(out.grams, grams)
 	}
-	selection, err := s.store.SelectRates(ctx, selectedPartner, ids)
-	if err != nil {
-		return empty, err
-	}
-	out := entity.PointEstimate{PartnerID: selectedPartner, AsOf: selection.AsOf, TotalWeightKG: formatPointDecimal(totalGrams, 3), Items: make([]entity.PointEstimateItem, 0, len(ids))}
+	return out, nil
+}
+
+// priceEstimate applies D-17: sum exact item products, then floor once.
+func priceEstimate(partner *string, lines estimateLines, selection PointRateSelection) (entity.PointEstimate, error) {
+	var empty entity.PointEstimate
+	out := entity.PointEstimate{PartnerID: partner, AsOf: selection.AsOf, TotalWeightKG: formatPointDecimal(lines.totalGrams, 3), Items: make([]entity.PointEstimateItem, 0, len(lines.ids))}
 	var numerator int64
-	for i, id := range ids {
+	for i, id := range lines.ids {
 		rate, ok := selection.Rates[id]
 		if !ok {
 			return empty, ErrWasteCategoryNotFound
@@ -118,11 +119,32 @@ func (s *PointEstimationService) Estimate(ctx context.Context, in entity.PointEs
 		// Grams * hundredths of a point/kg gives hundred-thousandths of a
 		// point. Keep the fraction until every item has been summed.
 		// The weight/rate caps bound the entire sum to 1e14 (safe in int64).
-		product := weights[i] * rate.RateHundredths
+		product := lines.grams[i] * rate.RateHundredths
 		numerator += product
-		out.Items = append(out.Items, entity.PointEstimateItem{CategoryID: id, CategoryName: rate.Name, WeightKG: formatPointDecimal(weights[i], 3), RateID: rate.RateID, PointsPerKG: formatPointDecimal(rate.RateHundredths, 2), ExactPoints: formatPointDecimal(product, 5), IsDemo: rate.IsDemo})
+		out.Items = append(out.Items, entity.PointEstimateItem{CategoryID: id, CategoryName: rate.Name, WeightKG: formatPointDecimal(lines.grams[i], 3), RateID: rate.RateID, PointsPerKG: formatPointDecimal(rate.RateHundredths, 2), ExactPoints: formatPointDecimal(product, 5), IsDemo: rate.IsDemo})
 		out.UsesDemoRates = out.UsesDemoRates || rate.IsDemo
 	}
 	out.EstimatedPoints = numerator / 100000
 	return out, nil
+}
+
+func (s *PointEstimationService) Estimate(ctx context.Context, in entity.PointEstimateRequest) (entity.PointEstimate, error) {
+	var empty entity.PointEstimate
+	var selectedPartner *string
+	if in.PartnerID != nil {
+		if !partnerID.MatchString(*in.PartnerID) {
+			return empty, ErrInvalidEstimate
+		}
+		id := strings.ToLower(*in.PartnerID)
+		selectedPartner = &id
+	}
+	lines, err := parseEstimateItems(in.Items)
+	if err != nil {
+		return empty, err
+	}
+	selection, err := s.store.SelectRates(ctx, selectedPartner, lines.ids)
+	if err != nil {
+		return empty, err
+	}
+	return priceEstimate(selectedPartner, lines, selection)
 }
