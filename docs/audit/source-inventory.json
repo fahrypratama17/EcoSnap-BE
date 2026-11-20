@@ -1,0 +1,2542 @@
+{
+  "audit_date": "2026-11-17",
+  "method": "Static source inventory; hashes describe working tree, not a runtime verification",
+  "frontend_root": "C:\\Users\\HP\\Documents\\UB\\02 Kuliah\\Mata Kuliah\\Semester 5\\03 Pengembangan Aplikasi Perangkat Bergerak\\EcoSnap-FE",
+  "backend_root": "C:\\Users\\HP\\Documents\\UB\\02 Kuliah\\Mata Kuliah\\Semester 5\\03 Pengembangan Aplikasi Perangkat Bergerak\\EcoSnap-BE",
+  "frontend_head": "7b08292332cec5b1b3539195eb94aeffb52a5110",
+  "backend_head": "071320d5a7bf1e5324e71c350dc18b0c1be5d621",
+  "files": [
+    {
+      "repo": "FE",
+      "path": "app/build.gradle.kts",
+      "sha256": "c719cf698d15956494db00162ebc2277b676892979205110f0d41486d5732283",
+      "lines": 65,
+      "declarations": []
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/androidTest/java/com/example/ecosnap/ExampleInstrumentedTest.kt",
+      "sha256": "6707398dabe5a98318cd314a133c25b945d7f82cac85d8ef3e7cda72b7b4db88",
+      "lines": 24,
+      "declarations": [
+        {
+          "line": 17,
+          "text": "class ExampleInstrumentedTest {"
+        },
+        {
+          "line": 19,
+          "text": "fun useAppContext() {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/AndroidManifest.xml",
+      "sha256": "2f0d61d6a57f9a9e5d196bc676e06412f8d02c3a29df4ffb0f9e219fc82e6699",
+      "lines": 33,
+      "declarations": []
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/core/designsystem/components/EcoAppHeader.kt",
+      "sha256": "804bf6bbfb383d3474f489e46c6055e65c2bffbfdfc6f96a276dfe959aef288d",
+      "lines": 109,
+      "declarations": [
+        {
+          "line": 30,
+          "text": "fun EcoAppHeader("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/core/designsystem/components/EcoBottomNavigation.kt",
+      "sha256": "3e68a98489eb35c075789c60663fa292066843a284ed5a8a6b62e207c26d2bfc",
+      "lines": 68,
+      "declarations": [
+        {
+          "line": 16,
+          "text": "data class EcoBottomItem("
+        },
+        {
+          "line": 23,
+          "text": "fun EcoBottomNavigation("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/core/designsystem/components/EcoButton.kt",
+      "sha256": "10f91a3168d3294a1d6adab09bb1e0654424ffe7488191e92183d7bb10830c1c",
+      "lines": 90,
+      "declarations": [
+        {
+          "line": 25,
+          "text": "fun EcoButton ("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/core/designsystem/components/EcoCard.kt",
+      "sha256": "21d4a541d48d890416ffb210cc0b2b5d0940cc3f6ad9f2387f9a7ddba69eb746",
+      "lines": 38,
+      "declarations": [
+        {
+          "line": 18,
+          "text": "fun EcoCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/core/designsystem/components/EcoDropdownField.kt",
+      "sha256": "8ebe52623231c9fb0cb5efc88812898323865cd27111278add1907420a168412",
+      "lines": 113,
+      "declarations": [
+        {
+          "line": 31,
+          "text": "fun EcoDropdownField("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/core/designsystem/components/EcoPasswordField.kt",
+      "sha256": "15e5f64009bc1b9702f5f47d01b6eb66efe7605ccb16f2bf617e2bd8b9de0328",
+      "lines": 66,
+      "declarations": [
+        {
+          "line": 22,
+          "text": "fun EcoPasswordField("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/core/designsystem/components/EcoTextField.kt",
+      "sha256": "f058b5c75c3b919db1ee09afb2004843d5120101d1926e714de6f06db95762c8",
+      "lines": 84,
+      "declarations": [
+        {
+          "line": 22,
+          "text": "fun EcoTextField("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/core/designsystem/theme/Color.kt",
+      "sha256": "d2ad301473e7700014fe3217198da444ca4f2b8df0707a3d1b6bb5876826a47a",
+      "lines": 27,
+      "declarations": [
+        {
+          "line": 5,
+          "text": "object EcoColor {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/core/designsystem/theme/Gradient.kt",
+      "sha256": "3d50defa83934731a0ac7626e11d4e8be1943ae6d7ae8aedd292c2a21487d424",
+      "lines": 21,
+      "declarations": [
+        {
+          "line": 5,
+          "text": "object EcoGradient {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/core/designsystem/theme/Shape.kt",
+      "sha256": "fc08a30c1ef2d6f579c51d5c8177034fd82174687589ef5b5c9435f4bf32f58d",
+      "lines": 13,
+      "declarations": []
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/core/designsystem/theme/Spacing.kt",
+      "sha256": "8797af7bd002867687bc6b3ff3f1176c9863d5e8bd8bcd9a476ea4e9e998f1ae",
+      "lines": 14,
+      "declarations": [
+        {
+          "line": 5,
+          "text": "object EcoSpacing {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/core/designsystem/theme/Theme.kt",
+      "sha256": "1bb70ef02280dc7d88fbb6e1a1ecf3a5f6d5bda0733ba6618ec9cde24991ddf5",
+      "lines": 50,
+      "declarations": [
+        {
+          "line": 29,
+          "text": "fun EcosnapTheme("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/core/designsystem/theme/Type.kt",
+      "sha256": "588cd086d8fafd28d886aac3a97e1056abc0ce8c5257758be2b7342df859715f",
+      "lines": 117,
+      "declarations": []
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/articles/ArticleDetailScreen.kt",
+      "sha256": "17aa75bf63da36a117efc0c2e51fc5fc07ec61b5549e9e0c8b3741404e3b0c50",
+      "lines": 169,
+      "declarations": [
+        {
+          "line": 35,
+          "text": "fun ArticleDetailScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/articles/ArticleListScreen.kt",
+      "sha256": "63e39259ea8ece0263c490a75b40fc9e328f82df8abda3bfcabcaf31d3181f00",
+      "lines": 257,
+      "declarations": [
+        {
+          "line": 46,
+          "text": "fun ArticleListScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/articles/components/ArticleCategoryBadge.kt",
+      "sha256": "dc450f4995b2db73c98662008e4e82d5783c56f631f0c4194dec256f0fa81317",
+      "lines": 33,
+      "declarations": [
+        {
+          "line": 14,
+          "text": "fun ArticleCategoryBadge("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/articles/components/ArticleCategoryFilters.kt",
+      "sha256": "ebcf335869f139ba1dd5cfd42061150a9c24d187850aa91cac48c168ba493e9d",
+      "lines": 96,
+      "declarations": [
+        {
+          "line": 25,
+          "text": "fun ArticleCategoryFilters("
+        },
+        {
+          "line": 56,
+          "text": "private fun ArticleFilterChip("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/articles/components/ArticleCover.kt",
+      "sha256": "ac996266706f5092e8f48e4df450a8b2c90c9e40938241bed9117740c229cc12",
+      "lines": 43,
+      "declarations": [
+        {
+          "line": 21,
+          "text": "fun ArticleCover("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/articles/components/ArticleFeaturedCard.kt",
+      "sha256": "56962888b04b339c20c80519a4282dfc841398ba85abdc90fc3729158f72b2c4",
+      "lines": 102,
+      "declarations": [
+        {
+          "line": 29,
+          "text": "fun ArticleFeaturedCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/articles/components/ArticleListCard.kt",
+      "sha256": "fd56d38d356d68d9c1e018b60b856a95031b171ac7dbe878b01c12847093f856",
+      "lines": 108,
+      "declarations": [
+        {
+          "line": 32,
+          "text": "fun ArticleListCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/articles/components/ArticleReadTime(.kt",
+      "sha256": "149bfb936b47a4081af1363816db7ebc9a1f4b167188ba6ab99dbd1e3e4c87e1",
+      "lines": 42,
+      "declarations": [
+        {
+          "line": 19,
+          "text": "fun ArticleReadTime("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/articles/components/ArticleSearchField.kt",
+      "sha256": "cb576a638238d543b5571d8e39e10a9f3e6e8d77b430b13208b1034eba8e1b9f",
+      "lines": 60,
+      "declarations": [
+        {
+          "line": 23,
+          "text": "fun ArticleSearchField("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/articles/components/ArticleTipCard.kt",
+      "sha256": "525f6e571eba7bcadbc0ed3a5ce598088e9487bda8c271c873e40357e56e6218",
+      "lines": 88,
+      "declarations": [
+        {
+          "line": 26,
+          "text": "fun ArticleTipCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/articles/data/LocalArticles.kt",
+      "sha256": "fca823a897fff10c7d3919ee54e76c572f7dc684ada8913810308ba142737bbf",
+      "lines": 160,
+      "declarations": [
+        {
+          "line": 7,
+          "text": "object LocalArticles {"
+        },
+        {
+          "line": 159,
+          "text": "fun findById(id: String): Article? = articles.firstOrNull { it.id == id }"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/articles/model/Article.kt",
+      "sha256": "303c5e3efcd9fcdb116e8e849ef4145d9f2a5f90a7cafc78a22ed3375e2cf732",
+      "lines": 13,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "data class Article("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/articles/model/ArticleCategory.kt",
+      "sha256": "043d3915f46c52db7e4eb33463aaf640d1e5725e0f8c26c4e19595623b06e02e",
+      "lines": 9,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "enum class ArticleCategory(val label: String) {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/articles/model/ArticleSection.kt",
+      "sha256": "8bd84734d8365da87efd944ecb0165508ff0f3abcdb78c576e796974bbc99eae",
+      "lines": 6,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "data class ArticleSection("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/auth/components/AuthDivider.kt",
+      "sha256": "7f7bdfc58f8567ebc8fbb392185af6edce70238da853a5daff098a2e8f9b1536",
+      "lines": 43,
+      "declarations": [
+        {
+          "line": 18,
+          "text": "fun AuthDivider("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/auth/components/AuthHeader.kt",
+      "sha256": "bc54f8906920c864122d9e6e3fd354aba88ff6d2ac8986db5bf1778e7c3f6b0c",
+      "lines": 143,
+      "declarations": [
+        {
+          "line": 43,
+          "text": "fun AuthLayout("
+        },
+        {
+          "line": 73,
+          "text": "fun AuthHeader("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/auth/components/AuthRoleSelector.kt",
+      "sha256": "145b43586c7f4aaccbd974aaeb7d91f2d2ae5307bf9b4b949874e65a2484b276",
+      "lines": 155,
+      "declarations": [
+        {
+          "line": 34,
+          "text": "fun AuthRoleSelector("
+        },
+        {
+          "line": 73,
+          "text": "private fun AuthRoleCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/auth/LoginScreen.kt",
+      "sha256": "61a6109943b228701f99ef543bf69cc57a79fba2c10722190127cca9c939639d",
+      "lines": 166,
+      "declarations": [
+        {
+          "line": 36,
+          "text": "fun LoginScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/auth/model/AuthRole.kt",
+      "sha256": "24c255e11daba7790b3380f0b58e68060468dea14bc73be990f7269364003c6a",
+      "lines": 26,
+      "declarations": [
+        {
+          "line": 5,
+          "text": "enum class AuthRole {"
+        },
+        {
+          "line": 10,
+          "text": "data class RegistrationData("
+        },
+        {
+          "line": 20,
+          "text": "fun isValidEmail(value: String): Boolean ="
+        },
+        {
+          "line": 23,
+          "text": "fun isValidPhone(value: String): Boolean ="
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/auth/PasswordResetScreens.kt",
+      "sha256": "6c3061335e5b81bf66e69898e610efe9b4636f6af2836700856acc9fd8fc3562",
+      "lines": 110,
+      "declarations": [
+        {
+          "line": 30,
+          "text": "fun ForgotPasswordScreen(onBack: () -> Unit, onHelp: () -> Unit, onContinue: () -> Unit) {"
+        },
+        {
+          "line": 51,
+          "text": "fun CheckEmailScreen(onBack: () -> Unit, onHelp: () -> Unit, onContinue: () -> Unit) {"
+        },
+        {
+          "line": 76,
+          "text": "fun NewPasswordScreen(onBack: () -> Unit, onHelp: () -> Unit, onSave: () -> Unit) {"
+        },
+        {
+          "line": 100,
+          "text": "private fun ResetButton(text: String, onClick: () -> Unit) {"
+        },
+        {
+          "line": 105,
+          "text": "private fun ResetFooter() {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/auth/RegisterScreen.kt",
+      "sha256": "5a122df0d6f2285133c58e836fa4eb9b74b713e0d51441e92987f6181c1a6c50",
+      "lines": 267,
+      "declarations": [
+        {
+          "line": 39,
+          "text": "fun RegisterScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/components/GameAnswerOption.kt",
+      "sha256": "a4f8ff62cc9943b97dc1a2cd082d6bfb7b8d18f28d468902ed3e0a3817cf1bdc",
+      "lines": 87,
+      "declarations": [
+        {
+          "line": 31,
+          "text": "fun GameAnswerOption("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/components/GameArtwork.kt",
+      "sha256": "8aba39d2ba979beec9d3391eec052104746b23f6581689ca19106b018879731f",
+      "lines": 52,
+      "declarations": [
+        {
+          "line": 22,
+          "text": "fun GameArtwork("
+        },
+        {
+          "line": 23,
+          "text": "type: GameType,"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/components/GameFeedbackCard.kt",
+      "sha256": "c47a95d285daec8a7823f9db6a8b783265e0b9e5c37e530258cbb3f08e199369",
+      "lines": 77,
+      "declarations": [
+        {
+          "line": 23,
+          "text": "fun GameFeedbackCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/components/GameQuestionVisual.kt",
+      "sha256": "5fbf637dd9366d5b7de6a0ff5cfd2ccc598622f793e5aa29f5859bf16da5ff66",
+      "lines": 122,
+      "declarations": [
+        {
+          "line": 29,
+          "text": "fun GameQuestionVisual("
+        },
+        {
+          "line": 69,
+          "text": "private fun BottleOutline(modifier: Modifier = Modifier) {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/components/GamesLeaderboardCard.kt",
+      "sha256": "ab506f9c47d5e9bac2645f4339e65ade3f5b6887171b36b6bc8603a0fd6c10a9",
+      "lines": 92,
+      "declarations": [
+        {
+          "line": 30,
+          "text": "fun GamesLeaderboardCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/components/GamesSectionHeader.kt",
+      "sha256": "e9df17561c082b6770a4167f1f5aabee97dce45ab1e0cda2a15dce9833cca02c",
+      "lines": 44,
+      "declarations": [
+        {
+          "line": 17,
+          "text": "fun GamesSectionHeader("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/components/MiniGameCard.kt",
+      "sha256": "b411a48f60770ad139624f7cd0bf2a287588d10178a7da27f1ac9033a5a50e47",
+      "lines": 149,
+      "declarations": [
+        {
+          "line": 35,
+          "text": "fun MiniGameCard("
+        },
+        {
+          "line": 51,
+          "text": "type = game.type,"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/components/WeeklyChallengeCard.kt",
+      "sha256": "0d2eaeed31d24b542a69105a59178dea8af4c1645a15176912c3f07d26074a80",
+      "lines": 192,
+      "declarations": [
+        {
+          "line": 36,
+          "text": "fun WeeklyChallengeCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/data/LocalGames.kt",
+      "sha256": "e9bfbfedce8bb8020c0816eed294e2ee3db4f616103039506cc445ff24f281ab",
+      "lines": 164,
+      "declarations": [
+        {
+          "line": 8,
+          "text": "object LocalGames {"
+        },
+        {
+          "line": 22,
+          "text": "type = GameType.SORTING,"
+        },
+        {
+          "line": 82,
+          "text": "type = GameType.QUIZ,"
+        },
+        {
+          "line": 163,
+          "text": "fun findById(id: String): MiniGame? = games.firstOrNull { it.id == id }"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/GameDetailScreen.kt",
+      "sha256": "4d26c95dc2b88c833f72998ab32e7b740447fa92b642aace0018c4f15c11ab5e",
+      "lines": 275,
+      "declarations": [
+        {
+          "line": 44,
+          "text": "fun GameDetailScreen("
+        },
+        {
+          "line": 84,
+          "text": "type = game.type,"
+        },
+        {
+          "line": 238,
+          "text": "private fun GameStatisticCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/GamePlayScreen.kt",
+      "sha256": "247c140c2270aed967221ed9dd7d204acd2b909884f16a301276d1d3358d27f0",
+      "lines": 345,
+      "declarations": [
+        {
+          "line": 52,
+          "text": "fun GamePlayScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/GameResultScreen.kt",
+      "sha256": "7ee3158c58accf5e726c983822c8673c95cc5a15b2fdab580a86646898b3d977",
+      "lines": 208,
+      "declarations": [
+        {
+          "line": 44,
+          "text": "fun GameResultScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/GamesCatalogScreen.kt",
+      "sha256": "2b193dbaa58a1b65da64e80b855944239a9e8a6c8ceee26d83f20ab85d568d90",
+      "lines": 259,
+      "declarations": [
+        {
+          "line": 51,
+          "text": "fun GamesCatalogScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/GamesHomeScreen.kt",
+      "sha256": "b7a7bf61d04f96107c570d6019b663819ba039fbed474f4406a9c5a94ec06eb4",
+      "lines": 111,
+      "declarations": [
+        {
+          "line": 27,
+          "text": "fun GamesHomeScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/model/AnswerOptionState.kt",
+      "sha256": "2dce663a570ea0331ec2d38bc4a387f69a4dca40658538a3970774dda89e68a3",
+      "lines": 7,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "enum class AnswerOptionState {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/model/GameQuestion.kt",
+      "sha256": "ae1ec073c4a8bbf3a057174373433592ef48fe09b0acf346c5929e9cc50200a4",
+      "lines": 11,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "data class GameQuestion("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/model/GameResult.kt",
+      "sha256": "2fe02c2bfe28b31c3bbd701edfee74f7d1bfe5ec6c267ba3397c737f28d5b2df",
+      "lines": 7,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "data class GameResult("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/model/GameType.kt",
+      "sha256": "c9f60cd2761fa9e57a99143e66a1617335de51f1aefd8530d4f07c07bdf273c1",
+      "lines": 6,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "enum class GameType {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/model/GameVisual.kt",
+      "sha256": "06ff2a80936d208d686c3d25e65196626bf8be5281d703d74c591e34dab6fbd6",
+      "lines": 11,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "enum class GameVisual {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/games/model/MiniGame.kt",
+      "sha256": "e6487e0719fdf8ccab0ebffbf2c8621ac92f60dcc9676f18e989ea233bfc468b",
+      "lines": 17,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "data class MiniGame("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/home/components/HomeHeader.kt",
+      "sha256": "a299e3d45833d59b9143493493b5ab71232b677099d2f82f0c4d4b865fcb4e9c",
+      "lines": 109,
+      "declarations": [
+        {
+          "line": 32,
+          "text": "fun HomeHeader("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/home/components/HomeNewsCard.kt",
+      "sha256": "92efed530b7db6a711069de16c063f04f2214beff14cfbb5d167021ce94840dc",
+      "lines": 132,
+      "declarations": [
+        {
+          "line": 33,
+          "text": "fun HomeNewsCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/home/components/HomePartnerCard.kt",
+      "sha256": "3a09e875ce858d9cfa4e6839867473306c03097727b58c0b0045707ec1315905",
+      "lines": 125,
+      "declarations": [
+        {
+          "line": 35,
+          "text": "fun HomePartnerCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/home/components/HomePointsCard.kt",
+      "sha256": "7357f098c43977d756a9e42c795ba62bf24a8a0ee23fd30b2678fde0f4a01a3e",
+      "lines": 160,
+      "declarations": [
+        {
+          "line": 37,
+          "text": "fun HomePointsCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/home/components/HomeQuickAction.kt",
+      "sha256": "2dba92b6ce0d8b9ee272a19342a8c0f8bd79b06b10ddb483d8db973b93c7b9b5",
+      "lines": 62,
+      "declarations": [
+        {
+          "line": 24,
+          "text": "fun HomeQuickAction("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/home/components/HomeSectionHeader.kt",
+      "sha256": "cea0e87db608850d1ee6d500fbb52f50a83267490025da685610e1b0b4e042a7",
+      "lines": 62,
+      "declarations": [
+        {
+          "line": 22,
+          "text": "fun HomeSectionHeader("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/home/components/HomeTipCard.kt",
+      "sha256": "fb6a44f42921e636781840d58ccf3d8adcf72eefea05f1d58dca6958fcd04069",
+      "lines": 67,
+      "declarations": [
+        {
+          "line": 25,
+          "text": "fun HomeTipCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/home/components/HomeWeeklyMissionCard.kt",
+      "sha256": "376478ccde895c272eca4b268328b38f4fed93aa53aafe485b417838a211fec1",
+      "lines": 136,
+      "declarations": [
+        {
+          "line": 30,
+          "text": "fun HomeWeeklyMissionCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/home/components/ScanPromotionCard.kt",
+      "sha256": "00c81df1c306a0ae80339ebc922e29dfbc4682d0c979e385df91d9c8bef521d3",
+      "lines": 133,
+      "declarations": [
+        {
+          "line": 35,
+          "text": "fun HomeScanPromoCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/home/HomeScreen.kt",
+      "sha256": "d1f41f107e9cf1c592cb8fd27d2dd8eea0af26effe403e4fdb8dea4d2ba589c2",
+      "lines": 218,
+      "declarations": [
+        {
+          "line": 33,
+          "text": "fun HomeScreen("
+        },
+        {
+          "line": 194,
+          "text": "private fun HomeScreenPreview() {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/home/model/HomeUiState.kt",
+      "sha256": "704fd92abaec5e3868bd92eac8e6710dd5dd320111df4bce3e2789808237b5aa",
+      "lines": 41,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "data class NearbyPartnerUi("
+        },
+        {
+          "line": 9,
+          "text": "data class HomeUiState("
+        },
+        {
+          "line": 24,
+          "text": "fun demo() = HomeUiState("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/leaderboard/components/LeaderboardAvatar.kt",
+      "sha256": "263f0b8f468a5149eb7792a1e869d682b4a62869921c79940ee419933b8cb607",
+      "lines": 40,
+      "declarations": [
+        {
+          "line": 19,
+          "text": "fun LeaderboardAvatar("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/leaderboard/components/LeaderboardExplanationCard.kt",
+      "sha256": "925e3344587ca02f39618d98fc982f1769c815ae9586062661e4dd9b0e92ae4d",
+      "lines": 42,
+      "declarations": [
+        {
+          "line": 17,
+          "text": "fun LeaderboardExplanationCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/leaderboard/components/LeaderboardModeSelector.kt",
+      "sha256": "ce8823d06a91d1b02544755d932a97fefcc75eea82a3ebfc8cab27d8d6b9c211",
+      "lines": 66,
+      "declarations": [
+        {
+          "line": 20,
+          "text": "fun LeaderboardModeSelector("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/leaderboard/components/LeaderboardMyRankCard.kt",
+      "sha256": "8e78da636ab415f29a72b23537e513f89e977b7b81f5d1b52fd9ff7dc58f45d0",
+      "lines": 122,
+      "declarations": [
+        {
+          "line": 28,
+          "text": "fun LeaderboardMyRankCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/leaderboard/components/LeaderboardPodiumCard.kt",
+      "sha256": "9355d25241e13eae2f1543f97cf2ac2b884430064b868f66e1656a689bc6e793",
+      "lines": 212,
+      "declarations": [
+        {
+          "line": 38,
+          "text": "internal fun formatScore(value: Int): String ="
+        },
+        {
+          "line": 44,
+          "text": "private fun PodiumPlace("
+        },
+        {
+          "line": 114,
+          "text": "fun LeaderboardPodiumCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/leaderboard/components/LeaderboardRankingCard.kt",
+      "sha256": "8cd13543e66e9638fd8bf52bcb1812f0315809220d80630f17a8fcd043200ad7",
+      "lines": 172,
+      "declarations": [
+        {
+          "line": 33,
+          "text": "private fun LeaderboardRankRow("
+        },
+        {
+          "line": 97,
+          "text": "fun LeaderboardRankingCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/leaderboard/components/LeaderboardTipCard.kt",
+      "sha256": "dc0aa384c5cf84dad0123f0222858d6a064459aa0d3d96d1eabbd79291ed3ed1",
+      "lines": 65,
+      "declarations": [
+        {
+          "line": 24,
+          "text": "fun LeaderboardTipCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/leaderboard/data/LocalLeaderboard.kt",
+      "sha256": "1e92e3398cb638c6485cd63443b70e776bd762d433365a23c2a56cd1fd2de480",
+      "lines": 72,
+      "declarations": [
+        {
+          "line": 7,
+          "text": "object LocalLeaderboard {"
+        },
+        {
+          "line": 52,
+          "text": "fun getRanking("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/leaderboard/LeaderboardScreen.kt",
+      "sha256": "394ee9fa22eabf879afa65adf893665541bda6955c30a462efd46ae9c64a15f4",
+      "lines": 258,
+      "declarations": [
+        {
+          "line": 49,
+          "text": "fun LeaderboardScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/leaderboard/model/LeaderboardEntry.kt",
+      "sha256": "2b7e9baa94553f479aa99c9eeb4ab2678346408f370515f4dcab3049c87a817e",
+      "lines": 16,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "data class LeaderboardEntry("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/leaderboard/model/LeaderboardMode.kt",
+      "sha256": "cf000ff96075ef0e5fd82424214a8d988717277ebecb99f748a4cc05d89dd5f5",
+      "lines": 25,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "enum class LeaderboardMode("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/leaderboard/model/RankedLeaderboardEntry.kt",
+      "sha256": "79326445531094677ce0bb3b08e0a02740d8ee8c8ac35ff31a85000eb719411c",
+      "lines": 6,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "data class RankedLeaderboardEntry("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/map/components/MapLibrePartnerMap.kt",
+      "sha256": "03ea572d334879922743cf1ec94fca7778fe9a943b4b7610779aa43f67a39452",
+      "lines": 353,
+      "declarations": [
+        {
+          "line": 66,
+          "text": "private fun partnersToGeoJson("
+        },
+        {
+          "line": 89,
+          "text": "fun MapLibrePartnerMap("
+        },
+        {
+          "line": 118,
+          "text": "fun startMap() {"
+        },
+        {
+          "line": 125,
+          "text": "fun resumeMap() {"
+        },
+        {
+          "line": 133,
+          "text": "fun pauseMap() {"
+        },
+        {
+          "line": 140,
+          "text": "fun stopMap() {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/map/components/PartnerDepositsStepsCard.kt",
+      "sha256": "542b7eb35a8a80ef83dcfbf66b8cfc47aefb875e89e5da56c2f671baadec5aad",
+      "lines": 113,
+      "declarations": [
+        {
+          "line": 23,
+          "text": "private fun DepositStep("
+        },
+        {
+          "line": 69,
+          "text": "fun PartnerDepositsStepsCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/map/components/PartnerInformationCard.kt",
+      "sha256": "b0d530a9a2a370a8af2b951c03091debb20dd23195edf45d2744439a88b0861e",
+      "lines": 124,
+      "declarations": [
+        {
+          "line": 31,
+          "text": "fun PartnerInfoRow("
+        },
+        {
+          "line": 81,
+          "text": "fun PartnerInformationCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/map/components/PartnerMaterialsCard.kt",
+      "sha256": "0f68bc74016a375451256b5645566b4d1e9729841d9de47646fbb432965a7393",
+      "lines": 93,
+      "declarations": [
+        {
+          "line": 27,
+          "text": "fun PartnerMaterialChip("
+        },
+        {
+          "line": 49,
+          "text": "fun PartnerAcceptedMaterialCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/map/components/PartnerSummaryCard.kt",
+      "sha256": "b228b7521c16dfe8e0ebac59d3185ffe37dec0f32fde164750d7b280ab277c16",
+      "lines": 115,
+      "declarations": [
+        {
+          "line": 29,
+          "text": "fun PartnerSummaryCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/map/model/DummyPartners.kt",
+      "sha256": "750f669fef6a4f6ff1e997f0a2fd864b7af128b9c5c853ccc5f416c2e7497b6e",
+      "lines": 75,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "object DummyPartners {"
+        },
+        {
+          "line": 73,
+          "text": "fun findById(id: String): WastePartner? ="
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/map/model/PartnerLocation.kt",
+      "sha256": "80e7697b47b24440fde4eb2d22dcd63359178e1d6a698fa96086efc3cb56665f",
+      "lines": 6,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "data class PartnerLocation("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/map/model/WasteMaterial.kt",
+      "sha256": "0b57f31246f78000cec2f67c605a6dd3a633865503fd40c2ec78cab343711014",
+      "lines": 8,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "enum class WasteMaterial(val label: String) {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/map/model/WastePartner.kt",
+      "sha256": "4cef24b77a0eac5fc28ce13b59170c3c6acc5d9f82e348e76afec224a0528254",
+      "lines": 14,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "data class WastePartner("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/map/PartnerDetailScreen.kt",
+      "sha256": "c8d3c97b0e80a4beca5ff1299589f43969b8db15b16637d9aa8d891e78411969",
+      "lines": 163,
+      "declarations": [
+        {
+          "line": 41,
+          "text": "fun PartnerDetailScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/map/PartnerMapScreen.kt",
+      "sha256": "c0ebd2c7511e36019f0a21d36c9272174df3e67b3880bc5a26cde1490f39bd9c",
+      "lines": 276,
+      "declarations": [
+        {
+          "line": 53,
+          "text": "fun PartnerMapScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/onboarding/components/OnboardingPageContent.kt",
+      "sha256": "2777862f3210a1e8288c4089460507613ba16304dbdbd8925e4e43bc13c81dd9",
+      "lines": 122,
+      "declarations": [
+        {
+          "line": 32,
+          "text": "fun OnboardingPageContent("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/onboarding/components/OnboardingPageIndicator.kt",
+      "sha256": "88aa29fe8d37ecdccf304af2979c8aa77ee5b6a0072db6bb83d392f4bc8d602d",
+      "lines": 52,
+      "declarations": [
+        {
+          "line": 19,
+          "text": "fun OnboardingPageIndicator("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/onboarding/data/OnboardingPreferences.kt",
+      "sha256": "f7896f8bf44b4b2f5a6635729d6e6d870c22f2fd692080ef143664526b8ab3e1",
+      "lines": 32,
+      "declarations": [
+        {
+          "line": 14,
+          "text": "class OnboardingPreferences ("
+        },
+        {
+          "line": 27,
+          "text": "suspend fun markCompleted() {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/onboarding/model/OnboardingPages.kt",
+      "sha256": "062f67638fa223ff4c251f099a674be8d34c52f3367e5990efcb8e443a84c3b4",
+      "lines": 30,
+      "declarations": [
+        {
+          "line": 8,
+          "text": "data class OnboardingPage("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/onboarding/OnboardingScreen.kt",
+      "sha256": "efdad092e3dfd0e2abfae3f9d13fe6cf0997e07764b8574efae9dc49ac62d4bb",
+      "lines": 197,
+      "declarations": [
+        {
+          "line": 49,
+          "text": "fun OnboardingScreen("
+        },
+        {
+          "line": 187,
+          "text": "private fun OnboardingPreview() {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/onboarding/SpashScreen.kt",
+      "sha256": "e6aff11fb1eb325755f5b9c6640ef516d3f7c3f08151164e6bb899b566401928",
+      "lines": 155,
+      "declarations": [
+        {
+          "line": 39,
+          "text": "fun SplashScreen("
+        },
+        {
+          "line": 148,
+          "text": "private fun SplashScreenPreview() {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/photos/CameraScreen.kt",
+      "sha256": "6b80ba7520f59f45fca3b5551c7e586447e181bafe179c442ced006fca399c86",
+      "lines": 523,
+      "declarations": [
+        {
+          "line": 71,
+          "text": "fun CameraScreen("
+        },
+        {
+          "line": 196,
+          "text": "fun capturePhoto() {"
+        },
+        {
+          "line": 218,
+          "text": "object : ImageCapture.OnImageSavedCallback {"
+        },
+        {
+          "line": 220,
+          "text": "override fun onImageSaved("
+        },
+        {
+          "line": 227,
+          "text": "override fun onError("
+        },
+        {
+          "line": 243,
+          "text": "fun toggleTorch() {"
+        },
+        {
+          "line": 263,
+          "text": "fun switchCamera() {"
+        },
+        {
+          "line": 489,
+          "text": "private fun copyImageToCache("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/photos/components/CameraControls.kt",
+      "sha256": "fcd04070655e149678b4399a2f4a84fed6af96e1e62bc772a10a698dcf2968f7",
+      "lines": 109,
+      "declarations": [
+        {
+          "line": 25,
+          "text": "fun CameraControlButton("
+        },
+        {
+          "line": 70,
+          "text": "fun CameraShutterButton("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/photos/components/CameraPreview.kt",
+      "sha256": "9b539ac0b70454b5dfb68f51b14491a5e43a675c3af9bbbb72751c0abaf8d1ec",
+      "lines": 27,
+      "declarations": [
+        {
+          "line": 10,
+          "text": "fun CameraPreview("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/photos/components/PhotoFrameOverlay.kt",
+      "sha256": "a635d36991bbaa2452e7d327388a4f6bca18dcd09e088126da5f03dbc87c0d40",
+      "lines": 46,
+      "declarations": [
+        {
+          "line": 12,
+          "text": "fun PhotoFrameOverlay("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/photos/components/PhotoHandlingCard.kt",
+      "sha256": "d11504801b15eb28d101277d089b19c3d3db3468e98196580337a389ed9b20cf",
+      "lines": 87,
+      "declarations": [
+        {
+          "line": 23,
+          "text": "private fun PhotoHandlingStep("
+        },
+        {
+          "line": 63,
+          "text": "fun PhotoHandlingCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/photos/components/PhotoIdentificationCard.kt",
+      "sha256": "e472d0158755d09c0bb95291f4f0879ec2bb70626ddf8be2d0d86f64aeb5eca6",
+      "lines": 74,
+      "declarations": [
+        {
+          "line": 24,
+          "text": "fun PhotoIdentificationCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/photos/components/PhotoIndustryCard.kt",
+      "sha256": "f1a2bab39e0de77827adc992a32a2f2e75ffd3fc6f1fcfede948cb3b19acc35f",
+      "lines": 56,
+      "declarations": [
+        {
+          "line": 23,
+          "text": "fun ScanIndustryCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/photos/components/PhotoMaterialChip.kt",
+      "sha256": "4454893c3255f93cc2e5dc28bde4eda992856a8ab84e148b1fa454f5b16f357d",
+      "lines": 33,
+      "declarations": [
+        {
+          "line": 14,
+          "text": "fun PhotoMaterialChip("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/photos/components/PhotoReuseIdeaCard.kt",
+      "sha256": "41b11970ca64a3fcd5307ad29a76f150a7174f0b9368cac14ce4e17fbb50c1c7",
+      "lines": 171,
+      "declarations": [
+        {
+          "line": 33,
+          "text": "fun PhotoReuseIdeaCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/photos/data/WastePhotosRepository.kt",
+      "sha256": "1358c232a49dcf057cd8715eeebae6ac4441415ef0c399e76757d54b02b7b365",
+      "lines": 91,
+      "declarations": [
+        {
+          "line": 9,
+          "text": "interface WastePhotosRepository {"
+        },
+        {
+          "line": 10,
+          "text": "suspend fun analyze(imageURL: Uri): WastePhotosResult"
+        },
+        {
+          "line": 13,
+          "text": "class DemoWastePhotosRepository : WastePhotosRepository {"
+        },
+        {
+          "line": 14,
+          "text": "override suspend fun analyze(imageURL: Uri): WastePhotosResult {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/photos/model/ReuseIdea.kt",
+      "sha256": "2452d2e8900131d3459a44f61d5c7d584a4270fd06315a3158dc487eec6989fa",
+      "lines": 9,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "data class ReuseIdea("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/photos/model/WastePhotosResult.kt",
+      "sha256": "be1f6f0f5a98b161da939b7b28d83e4314d5d5f41d13fc973b7168c2d1c77e72",
+      "lines": 12,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "data class WastePhotosResult("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/photos/PhotoResultScreen.kt",
+      "sha256": "9be49501351bdd634dfb4d95cab174c00116593e916037257be1bebe545cd3f2",
+      "lines": 256,
+      "declarations": [
+        {
+          "line": 51,
+          "text": "fun PhotoResultScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/AccountSettingsScreen.kt",
+      "sha256": "2e8bcecf53e9b0b181a03f7fa523301157952e30bcd94a2b8da4c5a6ff6f902d",
+      "lines": 76,
+      "declarations": [
+        {
+          "line": 23,
+          "text": "fun AccountSettingsScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/components/FaqAccordionCard.kt",
+      "sha256": "8d6abb3075ed25860bd02ee912ac3ffe9e67f79df68e265820383dae233206b4",
+      "lines": 81,
+      "declarations": [
+        {
+          "line": 28,
+          "text": "fun FaqAccordionCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/components/GreenAchievementCard.kt",
+      "sha256": "ca04b7ad95f99027e041f5840327a05d1a79bc242249f7865d029c40a2132c54",
+      "lines": 144,
+      "declarations": [
+        {
+          "line": 31,
+          "text": "fun GreenAchievementCard("
+        },
+        {
+          "line": 106,
+          "text": "private fun GreenStatItem("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/components/NotificationPreferenceGroup.kt",
+      "sha256": "a535a5a5d0c4cd73769d3aab5de82d28cedd13bd1ec836189853613d5e46e805",
+      "lines": 32,
+      "declarations": [
+        {
+          "line": 13,
+          "text": "fun NotificationPreferenceGroup("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/components/NotificationPreferenceRow.kt",
+      "sha256": "52316103588fd200c86d24d99e14ada9661e280e885b9d8048bbfbbc2f873298",
+      "lines": 76,
+      "declarations": [
+        {
+          "line": 28,
+          "text": "fun NotificationPreferenceRow("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/components/ProfileBackTextButton.kt",
+      "sha256": "c051b61275c642773c2b3e1035726470d7e6e4a59ece41683944cdc4c9f585f1",
+      "lines": 47,
+      "declarations": [
+        {
+          "line": 20,
+          "text": "fun ProfileBackTextButton("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/components/ProfileCardContainer.kt",
+      "sha256": "48faccf294de0c0b31add8cd10c0afb2e2c62f3c9a735574be7b949698c9ff69",
+      "lines": 38,
+      "declarations": [
+        {
+          "line": 17,
+          "text": "fun ProfileCardContainer("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/components/ProfileLogoutButton.kt",
+      "sha256": "2db264a9603fe7b73cc3abd9a0f7d0e5d4f14043cbeafbeac1654e5e5ecd2cfa",
+      "lines": 46,
+      "declarations": [
+        {
+          "line": 21,
+          "text": "fun ProfileLogoutButton("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/components/ProfileMenuGroup.kt",
+      "sha256": "7b84c30f1e8d4b03680394f105c64eea760229d32acd2cb6db0abb5e77c48e18",
+      "lines": 36,
+      "declarations": [
+        {
+          "line": 13,
+          "text": "fun ProfileMenuGroup("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/components/ProfileMenuRow.kt",
+      "sha256": "d49cde08f0250b31066f5df984ffda7abc60966c14dd4bdee59fe002acc47b91",
+      "lines": 91,
+      "declarations": [
+        {
+          "line": 30,
+          "text": "fun ProfileMenuRow("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/components/ProfilePageHeader.kt",
+      "sha256": "7460d55e8d35e62f70eead29871300dbc27d096268df3f6d82494c38a002823c",
+      "lines": 42,
+      "declarations": [
+        {
+          "line": 16,
+          "text": "fun ProfilePageHeader("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/components/ProfileSectionTitle.kt",
+      "sha256": "c27668fe3393b79d24e356bb682ebfe5709102e3cb733988d82182bcfe3d9968",
+      "lines": 25,
+      "declarations": [
+        {
+          "line": 12,
+          "text": "fun ProfileSectionTitle("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/components/ProfileSummaryCard.kt",
+      "sha256": "1f6671c4fc5b361b27599931430c9bbc4be7931c302140a2447fa49310b2ff85",
+      "lines": 114,
+      "declarations": [
+        {
+          "line": 33,
+          "text": "fun ProfileSummaryCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/components/ProfileTopBar.kt",
+      "sha256": "b278b69e59b80ea58ab3d992a8cbea57c1887164ae71f4f2bd0ddf12c22efcbd",
+      "lines": 104,
+      "declarations": [
+        {
+          "line": 31,
+          "text": "fun ProfileTopBar("
+        },
+        {
+          "line": 82,
+          "text": "private fun ProfileCircleActionButton("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/HelpCenterScreen.kt",
+      "sha256": "ab19eab457a267764733f7a46dba65d138f03eaf279eac5e7724d8078b4799bd",
+      "lines": 77,
+      "declarations": [
+        {
+          "line": 25,
+          "text": "fun HelpCenterScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/model/FaqItem.kt",
+      "sha256": "491551828c186efa6c116e231f8f9ad031370eb9c199a21fa6838e20aeff378e",
+      "lines": 6,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "data class FaqItem("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/model/GreenStats.kt",
+      "sha256": "51889ab548762b3b7e5930f7724442b3567d50395bec910174d9c8790a0b8972",
+      "lines": 7,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "data class GreenStats("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/model/NotificationPreferenceItem.kt",
+      "sha256": "8de864c24b8634a3040fc878ca162f48c97191fadfeb222e4d823aa5d540fc4e",
+      "lines": 6,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "data class NotificationPreferenceItem("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/model/ProfileDummyData.kt",
+      "sha256": "9fd6cb82e0260be2f81fad43e56769a89f82e761bda7be250aada393f210ef3a",
+      "lines": 91,
+      "declarations": [
+        {
+          "line": 12,
+          "text": "object ProfileDummyData {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/model/ProfileMenuItemData.kt",
+      "sha256": "3d179ee6c1899cf7139cbcca395eff3a129032f3d0e4ea5209a1af72e2894d87",
+      "lines": 9,
+      "declarations": [
+        {
+          "line": 5,
+          "text": "data class ProfileMenuItemData("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/model/UserProfile.kt",
+      "sha256": "03db98cd25e5d7d9a519752fb24dbe1dc90e674dd74da567962ffb66a7682b13",
+      "lines": 6,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "data class UserProfile("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/ProfilePlaceholderScreen.kt",
+      "sha256": "b1a319a180e156730d85e27e0c06d0f6af0b142f15f8d3f9c001ef3fbc7e44dc",
+      "lines": 70,
+      "declarations": [
+        {
+          "line": 22,
+          "text": "fun ProfilePlaceholderScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/profile/ProfileScreen.kt",
+      "sha256": "877bd3c9197151f4978bb5ec929f414cf7919184884ecd642ab278d101778912",
+      "lines": 135,
+      "declarations": [
+        {
+          "line": 33,
+          "text": "fun ProfileScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/scan/components/ScanPointsCard.kt",
+      "sha256": "eb6a7dc28f5e9c33f36ab2add8e0b784de6adbc775ebe44ed8488c1c2eacf7d2",
+      "lines": 112,
+      "declarations": [
+        {
+          "line": 31,
+          "text": "fun ScanPointsCard("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/scan/components/ScanQrControls.kt",
+      "sha256": "67fa37f5da032b156ee1adf871e4d0348024213b38fec6a4cd696ce4fb1456f3",
+      "lines": 134,
+      "declarations": [
+        {
+          "line": 31,
+          "text": "fun ScanQrControlButton("
+        },
+        {
+          "line": 88,
+          "text": "fun ScanQrShutterButton("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/scan/components/ScanTransactionCard.kt",
+      "sha256": "6ba1ff56cc8b149d6f3d5b0778ea998d9acebc2d5e07cd30344235ad3cabda54",
+      "lines": 76,
+      "declarations": [
+        {
+          "line": 24,
+          "text": "fun ScanTransactionCard("
+        },
+        {
+          "line": 48,
+          "text": "private fun TransactionRow("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/scan/data/LocalDeposits.kt",
+      "sha256": "f0611df910c531e494c22cc45b91d37eeaf2f4fb5a9773d992835cdb2873f556",
+      "lines": 23,
+      "declarations": [
+        {
+          "line": 5,
+          "text": "object LocalDeposits {"
+        },
+        {
+          "line": 20,
+          "text": "fun findById(id: String): DepositTransaction? {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/scan/model/DepositTransaction.kt",
+      "sha256": "a43808a8ce9b8750749ce1ca110b872c3fa2e5801f74128c0c2ea5e3070eaa0c",
+      "lines": 10,
+      "declarations": [
+        {
+          "line": 3,
+          "text": "data class DepositTransaction("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/scan/ScanQrScreen.kt",
+      "sha256": "77eafbcdbabd6fae6c06e0915147b48039289ef5d924484f5f625ae45aa34cd6",
+      "lines": 442,
+      "declarations": [
+        {
+          "line": 79,
+          "text": "fun ScanQrScreen("
+        },
+        {
+          "line": 113,
+          "text": "fun verifyQr() {"
+        },
+        {
+          "line": 177,
+          "text": "fun toggleTorch() {"
+        },
+        {
+          "line": 193,
+          "text": "fun switchCamera() {"
+        },
+        {
+          "line": 419,
+          "text": "private fun ScanHeaderButton("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/features/scan/ScanSuccessScreen.kt",
+      "sha256": "4b27fd1331a1372cd31b483d1ac0fdc11ebeea1cd02a36549f8b3670af27fd8b",
+      "lines": 146,
+      "declarations": [
+        {
+          "line": 38,
+          "text": "fun ScanSuccessScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/MainActivity.kt",
+      "sha256": "11d09210db312b81d4e8a07793df291343a2fd4e8b87d374bdb0b3231f0209fe",
+      "lines": 57,
+      "declarations": [
+        {
+          "line": 14,
+          "text": "class MainActivity : ComponentActivity() {"
+        },
+        {
+          "line": 15,
+          "text": "override fun onCreate(savedInstanceState: Bundle?) {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/navigation/AuthNavGraph.kt",
+      "sha256": "f94c6de0fd6a21200dd2e4175613fbe750c80cce1d8b076117423012f2eef88b",
+      "lines": 155,
+      "declarations": [
+        {
+          "line": 24,
+          "text": "fun NavGraphBuilder.authNavGraph("
+        },
+        {
+          "line": 133,
+          "text": "private fun AuthPlaceholderScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/navigation/EcoSnapNavHost.kt",
+      "sha256": "5d08bcee71852f6f62d5fbc261d914798a87cabba27d7addc8c483fe801a6f55",
+      "lines": 68,
+      "declarations": [
+        {
+          "line": 15,
+          "text": "fun EcoSnapNavHost("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/navigation/GamesNavGraph.kt",
+      "sha256": "2b4ad94831c2c11e6c472f7323ab01a7727ebd4fd30265a1ae55fb2a9034ea90",
+      "lines": 175,
+      "declarations": [
+        {
+          "line": 25,
+          "text": "fun NavGraphBuilder.gamesNavGraph("
+        },
+        {
+          "line": 154,
+          "text": "private fun GameNotFound("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/navigation/LeaderboardNavGraph.kt",
+      "sha256": "5f238e5ad9214f56e1a9d65a1f755148b27c98e9e16762e2c25255fe33b9c832",
+      "lines": 55,
+      "declarations": [
+        {
+          "line": 9,
+          "text": "fun NavGraphBuilder.leaderboardNavGraph("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/navigation/MainNavGraph.kt",
+      "sha256": "250c1d09126deb9604325525d141f3fda46295b29201fe22a0c9fa6983c1d156",
+      "lines": 375,
+      "declarations": [
+        {
+          "line": 71,
+          "text": "fun NavGraphBuilder.mainNavGraph("
+        },
+        {
+          "line": 315,
+          "text": "internal fun MainTabScaffold("
+        },
+        {
+          "line": 350,
+          "text": "private fun MainPlaceholder("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/navigation/PhotoNavGraph.kt",
+      "sha256": "49d17c7fd4eccafc98316439613d2556f2dc2be97f157744fc2be88843bd24fd",
+      "lines": 133,
+      "declarations": [
+        {
+          "line": 25,
+          "text": "fun NavGraphBuilder.photoNavGraph("
+        },
+        {
+          "line": 51,
+          "text": "type = NavType.StringType"
+        },
+        {
+          "line": 105,
+          "text": "private fun MissingScanImageScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/navigation/ProfileNavGraph.kt",
+      "sha256": "cfbdd8731182f5d597c70533276e5f5c4016768d8b80c0b71606429d898840d9",
+      "lines": 237,
+      "declarations": [
+        {
+          "line": 12,
+          "text": "fun NavGraphBuilder.profileNavGraph("
+        },
+        {
+          "line": 202,
+          "text": "private fun navigateProfileActivityMenu("
+        },
+        {
+          "line": 222,
+          "text": "private fun navigateProfileSupportMenu("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/navigation/Routes.kt",
+      "sha256": "9b532d53a4f79a5c6565715cef41b6dff222c2fb4b4020c230270ac85a28b581",
+      "lines": 75,
+      "declarations": [
+        {
+          "line": 5,
+          "text": "object Routes {"
+        },
+        {
+          "line": 49,
+          "text": "fun scanResult(photoUri: Uri): String {"
+        },
+        {
+          "line": 57,
+          "text": "fun scanQrResult(transactionId: String): String {"
+        },
+        {
+          "line": 61,
+          "text": "fun gameDetail(id: String): String = \"$GAME_DETAIL/${android.net.Uri.encode(id)}\""
+        },
+        {
+          "line": 63,
+          "text": "fun gamePlay(id: String): String = \"$GAME_PLAY/${android.net.Uri.encode(id)}\""
+        },
+        {
+          "line": 65,
+          "text": "fun partnerDetail(id: String): String {"
+        },
+        {
+          "line": 72,
+          "text": "fun articleDetail(id: String): String {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/main/java/com/example/ecosnap/navigation/ScanNavGraph.kt",
+      "sha256": "2b4a107371b7b6c66a8e6524934347d4332b2c1b0d848d3ac6dcdf81fdf1af62",
+      "lines": 115,
+      "declarations": [
+        {
+          "line": 25,
+          "text": "fun NavGraphBuilder.scanNavGraph("
+        },
+        {
+          "line": 83,
+          "text": "private fun InvalidQrScreen("
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "app/src/test/java/com/example/ecosnap/ExampleUnitTest.kt",
+      "sha256": "6b015fcad6a31f7630c8adf31b477dd0a79b77e77019e9acc8622c5588fcd0d4",
+      "lines": 17,
+      "declarations": [
+        {
+          "line": 12,
+          "text": "class ExampleUnitTest {"
+        },
+        {
+          "line": 14,
+          "text": "fun addition_isCorrect() {"
+        }
+      ]
+    },
+    {
+      "repo": "FE",
+      "path": "build.gradle.kts",
+      "sha256": "e880745ee2746267059b8859c6028182f90c495d4b4b5cdfcf8acda9b23b4d5b",
+      "lines": 5,
+      "declarations": []
+    },
+    {
+      "repo": "FE",
+      "path": "gradle/libs.versions.toml",
+      "sha256": "4c36763aadb2781fbce51381351e71d6aa533e11681b5c0df6151de5308bf0cb",
+      "lines": 52,
+      "declarations": []
+    },
+    {
+      "repo": "BE",
+      "path": "cmd/app/main.go",
+      "sha256": "532f568dadecf3647147ba6482307770f9dbf9f22f604ffb98ce00a6e1a60100",
+      "lines": 88,
+      "declarations": [
+        {
+          "line": 20,
+          "text": "func main() {"
+        },
+        {
+          "line": 26,
+          "text": "func run() error {"
+        }
+      ]
+    },
+    {
+      "repo": "BE",
+      "path": "database/migrations/00001_create_accounts.sql",
+      "sha256": "243b10a01281a2be47144de40b13e118ac02de23114f959e45a0a31cd19f1532",
+      "lines": 60,
+      "declarations": []
+    },
+    {
+      "repo": "BE",
+      "path": "database/schema.dbml",
+      "sha256": "007337a7360363871c2572f1f5fee2075d90ed810dad5a343eb21271d3cbce52",
+      "lines": 494,
+      "declarations": [
+        {
+          "line": 6,
+          "text": "Enum account_role {"
+        },
+        {
+          "line": 11,
+          "text": "Enum account_status {"
+        },
+        {
+          "line": 17,
+          "text": "Enum partner_status {"
+        },
+        {
+          "line": 24,
+          "text": "Enum scan_status {"
+        },
+        {
+          "line": 30,
+          "text": "Enum deposit_status {"
+        },
+        {
+          "line": 37,
+          "text": "Enum reward_status {"
+        },
+        {
+          "line": 42,
+          "text": "Enum redemption_status {"
+        },
+        {
+          "line": 50,
+          "text": "Enum ledger_source {"
+        },
+        {
+          "line": 57,
+          "text": "Enum game_type {"
+        },
+        {
+          "line": 62,
+          "text": "Enum attempt_status {"
+        },
+        {
+          "line": 68,
+          "text": "Enum mission_type {"
+        },
+        {
+          "line": 75,
+          "text": "Enum reward_kind {"
+        },
+        {
+          "line": 81,
+          "text": "Enum leaderboard_type {"
+        },
+        {
+          "line": 86,
+          "text": "Enum period_type {"
+        },
+        {
+          "line": 95,
+          "text": "Table accounts {"
+        },
+        {
+          "line": 107,
+          "text": "Table user_settings {"
+        },
+        {
+          "line": 118,
+          "text": "Table partners {"
+        },
+        {
+          "line": 133,
+          "text": "Table partner_hours {"
+        },
+        {
+          "line": 146,
+          "text": "Table waste_categories {"
+        },
+        {
+          "line": 154,
+          "text": "Table partner_accepted_waste {"
+        },
+        {
+          "line": 165,
+          "text": "Table partner_favorites {"
+        },
+        {
+          "line": 179,
+          "text": "Table scans {"
+        },
+        {
+          "line": 196,
+          "text": "Table reuse_ideas {"
+        },
+        {
+          "line": 209,
+          "text": "Table scan_reuse_ideas {"
+        },
+        {
+          "line": 222,
+          "text": "Table articles {"
+        },
+        {
+          "line": 237,
+          "text": "Table point_rates {"
+        },
+        {
+          "line": 245,
+          "text": "Table deposits {"
+        },
+        {
+          "line": 265,
+          "text": "Table qr_claims {"
+        },
+        {
+          "line": 278,
+          "text": "Table wallets {"
+        },
+        {
+          "line": 290,
+          "text": "Table reward_categories {"
+        },
+        {
+          "line": 296,
+          "text": "Table rewards {"
+        },
+        {
+          "line": 308,
+          "text": "Table redemptions {"
+        },
+        {
+          "line": 319,
+          "text": "Table point_ledger {"
+        },
+        {
+          "line": 339,
+          "text": "Table games {"
+        },
+        {
+          "line": 343,
+          "text": "type game_type [not null]"
+        },
+        {
+          "line": 349,
+          "text": "Table game_questions {"
+        },
+        {
+          "line": 358,
+          "text": "Table game_choices {"
+        },
+        {
+          "line": 365,
+          "text": "Table game_attempts {"
+        },
+        {
+          "line": 376,
+          "text": "Table game_answers {"
+        },
+        {
+          "line": 392,
+          "text": "Table badges {"
+        },
+        {
+          "line": 399,
+          "text": "Table missions {"
+        },
+        {
+          "line": 403,
+          "text": "type mission_type [not null]"
+        },
+        {
+          "line": 412,
+          "text": "Table mission_progress {"
+        },
+        {
+          "line": 425,
+          "text": "Table user_badges {"
+        },
+        {
+          "line": 439,
+          "text": "Table leaderboard_periods {"
+        },
+        {
+          "line": 441,
+          "text": "type leaderboard_type [not null]"
+        },
+        {
+          "line": 447,
+          "text": "Table leaderboard_rows {"
+        },
+        {
+          "line": 463,
+          "text": "Table notifications {"
+        },
+        {
+          "line": 468,
+          "text": "type varchar(40)"
+        },
+        {
+          "line": 473,
+          "text": "Table support_requests {"
+        },
+        {
+          "line": 476,
+          "text": "type varchar(30) [not null]"
+        },
+        {
+          "line": 487,
+          "text": "Table activity_reports {"
+        }
+      ]
+    },
+    {
+      "repo": "BE",
+      "path": "go.mod",
+      "sha256": "301d66978a25400001309430a27ee73dfa235122aef8003d1c2a7973fc6fce08",
+      "lines": 67,
+      "declarations": []
+    },
+    {
+      "repo": "BE",
+      "path": "internal/bootstrap/app.go",
+      "sha256": "2a03bc7f706d14cc379db00ae968ced70949c50d0c7379d47f28e6945131da2e",
+      "lines": 19,
+      "declarations": [
+        {
+          "line": 12,
+          "text": "func NewServer(cfg config.Config, verifier middleware.TokenVerifier) *http.Server {"
+        }
+      ]
+    },
+    {
+      "repo": "BE",
+      "path": "internal/config/config.go",
+      "sha256": "642cc617c01dfb6ef05a159c25fdd25b19b9f7023b0bb378ddcb590ac9a63661",
+      "lines": 24,
+      "declarations": [
+        {
+          "line": 8,
+          "text": "type Config struct {"
+        },
+        {
+          "line": 13,
+          "text": "func Load() (Config, error) {"
+        }
+      ]
+    },
+    {
+      "repo": "BE",
+      "path": "internal/delivery/http/handler/auth.go",
+      "sha256": "bf293d863383b6c92823d298a7bc9bbf9847ca6865050523507d4b7435dcd4d6",
+      "lines": 18,
+      "declarations": [
+        {
+          "line": 11,
+          "text": "func AuthMe(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "repo": "BE",
+      "path": "internal/delivery/http/handler/health.go",
+      "sha256": "14e21868f22b8aa9dc8cd105edfe5ccc68de130f87cdcc90ebdbedf209aa844a",
+      "lines": 8,
+      "declarations": [
+        {
+          "line": 5,
+          "text": "func Health(w http.ResponseWriter, _ *http.Request) {"
+        }
+      ]
+    },
+    {
+      "repo": "BE",
+      "path": "internal/delivery/http/middleware/auth.go",
+      "sha256": "179348c27d7a27db0875559315778476f8c345dc003a632b6d13e8b0961f81be",
+      "lines": 63,
+      "declarations": [
+        {
+          "line": 12,
+          "text": "type userUIDKey struct{}"
+        },
+        {
+          "line": 16,
+          "text": "type TokenVerifier interface {"
+        },
+        {
+          "line": 22,
+          "text": "type Identity struct {"
+        },
+        {
+          "line": 28,
+          "text": "func RequireAuth(client TokenVerifier) func(http.Handler) http.Handler {"
+        },
+        {
+          "line": 55,
+          "text": "func UIDFromContext(ctx context.Context) (string, bool) {"
+        },
+        {
+          "line": 60,
+          "text": "func IdentityFromContext(ctx context.Context) (Identity, bool) {"
+        }
+      ]
+    },
+    {
+      "repo": "BE",
+      "path": "internal/delivery/http/response/json.go",
+      "sha256": "fb021f28607feab60e490057e05a1a71657dac60978777c2ed90b860755dbf0f",
+      "lines": 21,
+      "declarations": [
+        {
+          "line": 9,
+          "text": "func JSON(w http.ResponseWriter, status int, body any) {"
+        },
+        {
+          "line": 17,
+          "text": "func Error(w http.ResponseWriter, status int, code, message string) {"
+        }
+      ]
+    },
+    {
+      "repo": "BE",
+      "path": "internal/delivery/http/router.go",
+      "sha256": "0f098e57eadb243852d34f62a32c013a3802102531dba7ec4154f232b058ed26",
+      "lines": 15,
+      "declarations": [
+        {
+          "line": 10,
+          "text": "func NewRouter(verifier middleware.TokenVerifier) *http.ServeMux {"
+        }
+      ]
+    },
+    {
+      "repo": "BE",
+      "path": "internal/delivery/http/router_test.go",
+      "sha256": "69d17579a187d90ddaef5f401a686dbca12ac49d67d7001538338c28ab8abfab",
+      "lines": 127,
+      "declarations": [
+        {
+          "line": 16,
+          "text": "type verifierFunc func(context.Context, string) (*auth.Token, error)"
+        },
+        {
+          "line": 18,
+          "text": "func (f verifierFunc) VerifyIDToken(ctx context.Context, token string) (*auth.Token, error) {"
+        },
+        {
+          "line": 22,
+          "text": "func TestAuthMeRejectsInvalidAuthentication(t *testing.T) {"
+        },
+        {
+          "line": 76,
+          "text": "func TestAuthMeUsesVerifiedClaims(t *testing.T) {"
+        },
+        {
+          "line": 79,
+          "text": "type requestKey struct{}"
+        },
+        {
+          "line": 117,
+          "text": "func TestHealthDoesNotRequireAuthentication(t *testing.T) {"
+        }
+      ]
+    },
+    {
+      "repo": "BE",
+      "path": "internal/integration/firebase/auth.go",
+      "sha256": "0041793bb3de18e9e4fd1b0161d2d44866b499eba2002523614f0d99c0dc7329",
+      "lines": 23,
+      "declarations": [
+        {
+          "line": 11,
+          "text": "func NewAuthClient(ctx context.Context) (*auth.Client, error) {"
+        }
+      ]
+    },
+    {
+      "repo": "BE",
+      "path": "internal/repository/postgres/connection.go",
+      "sha256": "9145067688924eace0b118952d668a2764c58b8bb3163b05d2f19e702e6f94b5",
+      "lines": 26,
+      "declarations": [
+        {
+          "line": 11,
+          "text": "func NewPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {"
+        }
+      ]
+    }
+  ]
+}

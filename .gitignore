@@ -1,2 +1,16 @@
 .idea
 .idea/*
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*-firebase-adminsdk-*.json
+
+# Build output
+/bin/
+
+# Executables produced by local Go builds
+/app.exe
+/seed-partners.exe
+*.test.exe

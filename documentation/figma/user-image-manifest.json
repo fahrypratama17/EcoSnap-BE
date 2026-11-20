@@ -1,0 +1,82 @@
+[
+  {
+    "imageNumber": 1,
+    "path": "user-provided/01-onboarding.png",
+    "width": 3664,
+    "height": 1852,
+    "bytes": 4167578,
+    "sha256": "40f8e573be3189bd4e1d3096dd87e74bf4aa7b35a015582f377188bce52dab0e"
+  },
+  {
+    "imageNumber": 2,
+    "path": "user-provided/02-authentication.png",
+    "width": 5536,
+    "height": 1852,
+    "bytes": 8604169,
+    "sha256": "0192fe9acae6df1cc7214661d35acfa5f6a16cecc8318bcf9e91dae9224fdc7c"
+  },
+  {
+    "imageNumber": 3,
+    "path": "user-provided/03-home-map-camera.png",
+    "width": 3664,
+    "height": 2656,
+    "bytes": 2619235,
+    "sha256": "dbd65228d08424f0b2ddb8a58f6b50e7e4ad044bcb4ccdec8b5dbfab17290031"
+  },
+  {
+    "imageNumber": 4,
+    "path": "user-provided/04-scan-results-and-qr.png",
+    "width": 3572,
+    "height": 3706,
+    "bytes": 2481882,
+    "sha256": "6721825a857242e81df016d174a859c7840ca4fc0e01b9e2d974b91fcb7e72e9"
+  },
+  {
+    "imageNumber": 5,
+    "path": "user-provided/05-rewards-and-games.png",
+    "width": 3664,
+    "height": 2610,
+    "bytes": 1800333,
+    "sha256": "c0cde0a9d88c51b6077b2e531085b2dda1986b0905623d8e2851e09337c118e0"
+  },
+  {
+    "imageNumber": 6,
+    "path": "user-provided/06-sorting-game.png",
+    "width": 4600,
+    "height": 2270,
+    "bytes": 1794971,
+    "sha256": "99917e61f7a26675cf408a67bd15a419726108ffeeb7f3a21ec165518df18a1c"
+  },
+  {
+    "imageNumber": 7,
+    "path": "user-provided/07-calculator-articles-leaderboards.png",
+    "width": 4600,
+    "height": 3120,
+    "bytes": 2614873,
+    "sha256": "b3af2f9a6fbd647bad6064ebed4a6df90d545d68b4dc58dc99af9f19652c280a"
+  },
+  {
+    "imageNumber": 8,
+    "path": "user-provided/08-history-profile-settings.png",
+    "width": 4600,
+    "height": 2958,
+    "bytes": 1912976,
+    "sha256": "ab265ab490bd8cda62b62da6de742140a3121aba2c9827057914d8e6ba59565f"
+  },
+  {
+    "imageNumber": 9,
+    "path": "user-provided/09-reports-and-support.png",
+    "width": 2728,
+    "height": 2432,
+    "bytes": 1301150,
+    "sha256": "c24ef9fd3655b214f596fcc79a9e2f26edaa8701724f037ef5537d1b595a632f"
+  },
+  {
+    "imageNumber": 10,
+    "path": "user-provided/10-partner-deposit-qr.png",
+    "width": 2728,
+    "height": 2284,
+    "bytes": 1567560,
+    "sha256": "f1d7e23bd76423783143bcc7bf822b4fdfd7ba83011f6424bb3e7c49d0d9fa95"
+  }
+]

@@ -1,0 +1,494 @@
+Project EcoSnap {
+  database_type: 'PostgreSQL'
+  Note: 'Firebase Auth for login, Firebase Storage for media, PostgreSQL for application and transaction data.'
+}
+
+Enum account_role {
+  user
+  mitra
+}
+
+Enum account_status {
+  active
+  suspended
+  deleted
+}
+
+Enum partner_status {
+  pending
+  verified
+  rejected
+  suspended
+}
+
+Enum scan_status {
+  processing
+  completed
+  failed
+}
+
+Enum deposit_status {
+  awaiting_scan
+  completed
+  expired
+  cancelled
+}
+
+Enum reward_status {
+  active
+  inactive
+}
+
+Enum redemption_status {
+  requested
+  issued
+  used
+  failed
+  cancelled
+}
+
+Enum ledger_source {
+  deposit
+  redemption
+  mission_bonus
+  adjustment
+}
+
+Enum game_type {
+  sorting
+  quiz
+}
+
+Enum attempt_status {
+  in_progress
+  completed
+  abandoned
+}
+
+Enum mission_type {
+  deposit_count
+  deposit_weight
+  games_completed
+  scans_completed
+}
+
+Enum reward_kind {
+  xp
+  points
+  badge
+}
+
+Enum leaderboard_type {
+  deposit_points
+  game_xp
+}
+
+Enum period_type {
+  weekly
+  monthly
+}
+
+// ============================
+// 1. ACCOUNTS AND SETTINGS
+// ============================
+
+Table accounts {
+  firebase_uid varchar(128) [pk]
+  role account_role [not null, default: 'user']
+  full_name varchar(150) [not null]
+  display_name varchar(80) [not null]
+  email varchar(255)
+  phone varchar(32)
+  photo_path text
+  status account_status [not null, default: 'active']
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table user_settings {
+  firebase_uid varchar(128) [pk, ref: - accounts.firebase_uid]
+  notification_enabled boolean [not null, default: true]
+  show_on_leaderboard boolean [not null, default: true]
+  onboarding_completed boolean [not null, default: false]
+}
+
+// ============================
+// 2. MITRA AND LOCATIONS
+// ============================
+
+Table partners {
+  id uuid [pk]
+  mitra_uid varchar(128) [not null, unique, ref: - accounts.firebase_uid]
+  business_name varchar(150) [not null]
+  business_category varchar(80)
+  description text
+  address text [not null]
+  latitude decimal(10,7)
+  longitude decimal(10,7)
+  phone varchar(32)
+  cover_photo_path text
+  status partner_status [not null, default: 'pending']
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table partner_hours {
+  id uuid [pk]
+  partner_id uuid [not null, ref: > partners.id]
+  day_of_week smallint [not null]
+  opens_at time
+  closes_at time
+  is_closed boolean [not null, default: false]
+
+  indexes {
+    (partner_id, day_of_week) [unique]
+  }
+}
+
+Table waste_categories {
+  id uuid [pk]
+  name varchar(100) [not null]
+  slug varchar(100) [not null, unique]
+  handling_guide text
+  requires_special_handling boolean [not null, default: false]
+}
+
+Table partner_accepted_waste {
+  id uuid [pk]
+  partner_id uuid [not null, ref: > partners.id]
+  category_id uuid [not null, ref: > waste_categories.id]
+  notes text
+
+  indexes {
+    (partner_id, category_id) [unique]
+  }
+}
+
+Table partner_favorites {
+  id uuid [pk]
+  user_uid varchar(128) [not null, ref: > accounts.firebase_uid]
+  partner_id uuid [not null, ref: > partners.id]
+
+  indexes {
+    (user_uid, partner_id) [unique]
+  }
+}
+
+// ============================
+// 3. AI SCAN
+// ============================
+
+Table scans {
+  id uuid [pk]
+  user_uid varchar(128) [not null, ref: > accounts.firebase_uid]
+  image_path text [not null]
+  detected_name varchar(200)
+  category_id uuid [ref: > waste_categories.id]
+  corrected_category_id uuid [ref: > waste_categories.id]
+  model_version varchar(60)
+  status scan_status [not null, default: 'processing']
+  ai_result jsonb
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (user_uid, created_at)
+  }
+}
+
+Table reuse_ideas {
+  id uuid [pk]
+  category_id uuid [not null, ref: > waste_categories.id]
+  title varchar(160) [not null]
+  description text
+  difficulty varchar(24)
+  tools_json jsonb
+  steps_json jsonb
+  safety_notes text
+  image_path text
+  is_published boolean [not null, default: true]
+}
+
+Table scan_reuse_ideas {
+  scan_id uuid [not null, ref: > scans.id]
+  idea_id uuid [not null, ref: > reuse_ideas.id]
+
+  indexes {
+    (scan_id, idea_id) [pk]
+  }
+}
+
+// ============================
+// 4. ARTICLES
+// ============================
+
+Table articles {
+  id uuid [pk]
+  title varchar(200) [not null]
+  category varchar(100)
+  summary text
+  body_markdown text [not null]
+  cover_path text
+  is_published boolean [not null, default: false]
+  published_at timestamptz
+}
+
+// ============================
+// 5. POINT CALCULATOR & QR
+// ============================
+
+Table point_rates {
+  id uuid [pk]
+  partner_id uuid [ref: > partners.id]
+  points_per_kg decimal(12,2) [not null]
+  active_from timestamptz [not null]
+  active_until timestamptz
+}
+
+Table deposits {
+  id uuid [pk]
+  transaction_code varchar(50) [not null, unique]
+  partner_id uuid [not null, ref: > partners.id]
+  created_by_mitra_uid varchar(128) [not null, ref: > accounts.firebase_uid]
+  claimed_by_user_uid varchar(128) [ref: > accounts.firebase_uid]
+  rate_id uuid [ref: > point_rates.id]
+  weight_kg decimal(10,3) [not null]
+  rate_snapshot decimal(12,2) [not null]
+  points_awarded integer [not null]
+  status deposit_status [not null, default: 'awaiting_scan']
+  created_at timestamptz [not null, default: `now()`]
+  completed_at timestamptz
+
+  indexes {
+    (partner_id, created_at)
+    (claimed_by_user_uid, created_at)
+  }
+}
+
+Table qr_claims {
+  id uuid [pk]
+  deposit_id uuid [not null, unique, ref: - deposits.id]
+  token_hash char(64) [not null, unique]
+  expires_at timestamptz [not null]
+  used_at timestamptz
+  revoked_at timestamptz
+}
+
+// ============================
+// 6. ECOPOINTS WALLET
+// ============================
+
+Table wallets {
+  user_uid varchar(128) [pk, ref: - accounts.firebase_uid]
+  balance integer [not null, default: 0]
+  total_earned integer [not null, default: 0]
+  total_spent integer [not null, default: 0]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+// ============================
+// 7. REWARDS
+// ============================
+
+Table reward_categories {
+  id uuid [pk]
+  name varchar(100) [not null]
+  slug varchar(100) [not null, unique]
+}
+
+Table rewards {
+  id uuid [pk]
+  category_id uuid [not null, ref: > reward_categories.id]
+  title varchar(200) [not null]
+  description text
+  image_path text
+  point_cost integer [not null]
+  stock integer
+  terms text
+  status reward_status [not null, default: 'inactive']
+}
+
+Table redemptions {
+  id uuid [pk]
+  user_uid varchar(128) [not null, ref: > accounts.firebase_uid]
+  reward_id uuid [not null, ref: > rewards.id]
+  cost_snapshot integer [not null]
+  status redemption_status [not null, default: 'requested']
+  voucher_code_encrypted text
+  created_at timestamptz [not null, default: `now()`]
+  issued_at timestamptz
+}
+
+Table point_ledger {
+  id uuid [pk]
+  user_uid varchar(128) [not null, ref: > accounts.firebase_uid]
+  amount integer [not null]
+  source ledger_source [not null]
+  deposit_id uuid [ref: > deposits.id]
+  redemption_id uuid [ref: > redemptions.id]
+  mission_progress_id uuid [ref: > mission_progress.id]
+  idempotency_key varchar(150) [not null, unique]
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (user_uid, created_at)
+  }
+}
+
+// ============================
+// 8. MINI GAMES
+// ============================
+
+Table games {
+  id uuid [pk]
+  title varchar(150) [not null]
+  description text
+  type game_type [not null]
+  image_path text
+  xp_per_correct integer [not null, default: 10]
+  is_active boolean [not null, default: true]
+}
+
+Table game_questions {
+  id uuid [pk]
+  game_id uuid [not null, ref: > games.id]
+  question text [not null]
+  explanation text
+  image_path text
+  question_order integer [not null]
+}
+
+Table game_choices {
+  id uuid [pk]
+  question_id uuid [not null, ref: > game_questions.id]
+  answer text [not null]
+  is_correct boolean [not null, default: false]
+}
+
+Table game_attempts {
+  id uuid [pk]
+  user_uid varchar(128) [not null, ref: > accounts.firebase_uid]
+  game_id uuid [not null, ref: > games.id]
+  status attempt_status [not null, default: 'in_progress']
+  correct_answers integer [not null, default: 0]
+  xp_earned integer [not null, default: 0]
+  started_at timestamptz [not null, default: `now()`]
+  completed_at timestamptz
+}
+
+Table game_answers {
+  id uuid [pk]
+  attempt_id uuid [not null, ref: > game_attempts.id]
+  question_id uuid [not null, ref: > game_questions.id]
+  choice_id uuid [not null, ref: > game_choices.id]
+  is_correct boolean [not null]
+
+  indexes {
+    (attempt_id, question_id) [unique]
+  }
+}
+
+// ============================
+// 9. WEEKLY MISSIONS & BADGES
+// ============================
+
+Table badges {
+  id uuid [pk]
+  title varchar(100) [not null]
+  description text
+  image_path text
+}
+
+Table missions {
+  id uuid [pk]
+  title varchar(150) [not null]
+  description text
+  type mission_type [not null]
+  target_value decimal(12,3) [not null]
+  reward_type reward_kind [not null]
+  reward_amount integer [not null, default: 0]
+  badge_id uuid [ref: > badges.id]
+  starts_at timestamptz [not null]
+  ends_at timestamptz [not null]
+}
+
+Table mission_progress {
+  id uuid [pk]
+  mission_id uuid [not null, ref: > missions.id]
+  user_uid varchar(128) [not null, ref: > accounts.firebase_uid]
+  current_value decimal(12,3) [not null, default: 0]
+  completed_at timestamptz
+  claimed_at timestamptz
+
+  indexes {
+    (mission_id, user_uid) [unique]
+  }
+}
+
+Table user_badges {
+  user_uid varchar(128) [not null, ref: > accounts.firebase_uid]
+  badge_id uuid [not null, ref: > badges.id]
+  granted_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (user_uid, badge_id) [pk]
+  }
+}
+
+// ============================
+// 10. LEADERBOARD
+// ============================
+
+Table leaderboard_periods {
+  id uuid [pk]
+  type leaderboard_type [not null]
+  period period_type [not null]
+  starts_at timestamptz [not null]
+  ends_at timestamptz [not null]
+}
+
+Table leaderboard_rows {
+  id uuid [pk]
+  period_id uuid [not null, ref: > leaderboard_periods.id]
+  user_uid varchar(128) [not null, ref: > accounts.firebase_uid]
+  rank_position integer [not null]
+  score integer [not null]
+
+  indexes {
+    (period_id, user_uid) [unique]
+  }
+}
+
+// ============================
+// 11. NOTIFICATIONS & SUPPORT
+// ============================
+
+Table notifications {
+  id uuid [pk]
+  user_uid varchar(128) [not null, ref: > accounts.firebase_uid]
+  title varchar(200) [not null]
+  message text [not null]
+  type varchar(40)
+  created_at timestamptz [not null, default: `now()`]
+  read_at timestamptz
+}
+
+Table support_requests {
+  id uuid [pk]
+  user_uid varchar(128) [not null, ref: > accounts.firebase_uid]
+  type varchar(30) [not null]
+  category varchar(100)
+  description text [not null]
+  attachment_paths jsonb
+  created_at timestamptz [not null, default: `now()`]
+}
+
+// ============================
+// 12. ACTIVITY REPORTS
+// ============================
+
+Table activity_reports {
+  id uuid [pk]
+  user_uid varchar(128) [not null, ref: > accounts.firebase_uid]
+  date_from date [not null]
+  date_to date [not null]
+  pdf_path text [not null]
+  created_at timestamptz [not null, default: `now()`]
+}
