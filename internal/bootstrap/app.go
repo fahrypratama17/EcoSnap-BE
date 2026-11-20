@@ -21,6 +21,8 @@ func NewServer(cfg config.Config, verifier middleware.TokenVerifier, pool *pgxpo
 	httpdelivery.RegisterPartnerRoutes(mux, verifier, partners)
 	favorites := handler.NewFavoriteHandler(service.NewFavoriteService(postgres.NewFavoriteRepository(pool)))
 	httpdelivery.RegisterFavoriteRoutes(mux, verifier, favorites)
+	estimates := handler.NewPointEstimationHandler(service.NewPointEstimationService(postgres.NewPointRateRepository(pool)))
+	httpdelivery.RegisterPointEstimateRoutes(mux, verifier, estimates)
 	return &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           mux,

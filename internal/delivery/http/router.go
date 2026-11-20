@@ -34,3 +34,7 @@ func RegisterFavoriteRoutes(mux *http.ServeMux, verifier middleware.TokenVerifie
 	mux.Handle("PUT /api/v1/me/favorites/{partnerID}", protect(http.HandlerFunc(favorites.Set)))
 	mux.Handle("DELETE /api/v1/me/favorites/{partnerID}", protect(http.HandlerFunc(favorites.Set)))
 }
+
+func RegisterPointEstimateRoutes(mux *http.ServeMux, verifier middleware.TokenVerifier, estimates *handler.PointEstimationHandler) {
+	mux.Handle("POST /api/v1/point-estimates", middleware.RequireAuth(verifier)(http.HandlerFunc(estimates.Estimate)))
+}

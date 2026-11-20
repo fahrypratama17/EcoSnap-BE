@@ -121,7 +121,7 @@ Registrasi mitra memerlukan keputusan tambahan. Form Android belum meminta alama
 - Password hanya digunakan dalam proses Firebase Auth Android; backend profil tidak menerima atau menyimpan password.
 - Saldo, harga poin, dan XP dikirim sebagai angka. String tampilan seperti `1.250 poin` dibuat oleh UI.
 - Timestamp fitur berikutnya direncanakan memakai RFC3339; label seperti `21 Okt 2026` dibuat oleh Android.
-- Decimal berat/tarif perlu kontrak presisi sebelum endpoint transaksi ditulis. Model demo Double tidak menentukan cara perhitungan saldo server.
+- Kontrak estimasi memakai string desimal berat (maksimal 3 desimal) dan tarif (2 desimal); poin total integer dibulatkan ke bawah sesudah seluruh item dijumlahkan. Detail pada [point-estimates.md](point-estimates.md). Model demo Double tidak menentukan cara perhitungan saldo server.
 - Kategori material sebaiknya memiliki ID/slug stabil dan label tampilan. Resource drawable Android tidak dikirim sebagai ID gambar lintas sistem.
 - Loading, empty state, validation error, unauthenticated, forbidden, dan retry harus ditangani saat menghubungkan tiap layar.
 
@@ -163,3 +163,7 @@ GET /api/v1/me/favorites serta PUT/DELETE /api/v1/me/favorites/{partnerID} terse
 ## Pembaruan edit profil 2026-11-20
 
 PATCH /api/v1/me tersedia untuk full_name dan phone; field lain ditolak. Backend dan PostgreSQL lokal lolos tes. Kontrak lengkap [accounts.md](accounts.md). Form Android belum diubah atau diintegrasikan.
+
+## Pembaruan estimasi multi-material 2026-11-20
+
+POST /api/v1/point-estimates tersedia dengan Firebase bearer. Kategori/berat dikirim per item; tarif dihitung server, wallet tetap. Kontrak request/response/error, seed demo, serta kebutuhan DTO tercatat pada [point-estimates.md](point-estimates.md). features/deposit pada worktree FE masih placeholder .gitkeep; batch ini tidak mengubah Android. Setoran/QR/claim/ledger masih backlog.
