@@ -70,11 +70,9 @@ Keberadaan screenshot, folder, file stub, atau dependency tidak membuktikan fitu
 
 ### 2.3 Posisi berikutnya
 
-Baseline tidak perlu dibuat ulang: chore/backend-baseline tetap db51b4b dan dev tetap 5f05499, dengan baseline merupakan ancestor dev. Selisih kedua branch hanya BUILD_PROCESS.md; source implementasi sama. Pemeriksaan dimulai dari working tree bersih.
+Baseline db51b4b tidak perlu dibuat ulang. Setelah ruang tersedia (awal run sekitar 6,9 GB), full suite PostgreSQL portable PASS tanpa SKIP dan build exit 0. GIT-03 selesai; kegagalan disk pada checkpoint lama tetap menjadi riwayat. Guard ruang minimum 4 GiB tetap dipakai oleh kedua runner.
 
-Pemeriksaan ruang terbaru menemukan sekitar 413 MB (0,39 GiB) pada C, sehingga GIT-03 belum dapat ditutup. Agar run penuh tidak mengulangi disk-full, branch chore/test-runner-preflight dibuat dari dev. Helper scripts/assert-test-storage.ps1 kini memeriksa volume repository, TEMP, dan GOCACHE sebelum startup kedua runner; batas awal konservatif 4 GiB per volume. Ini guard minimum, bukan jaminan kebutuhan puncak seluruh environment selalu cukup.
-
-Uji helper ruang cukup/kurang PASS; syntax PowerShell PASS; kedua runner menolak kondisi ruang aktual sebelum cluster/container dibuat. Daftar cluster dan environment database tes tidak berubah. Suite Go/PostgreSQL penuh tidak dijalankan ulang pada kondisi ini. Tidak ada source aplikasi, migration, Supabase, atau frontend diubah. Fitur deposit-estimation belum dibuat; lanjut setelah ruang tersedia dan GIT-03 benar-benar lolos.
+Langkah berikutnya: gabungkan perbaikan runner lokal ke dev, lalu kerjakan feat/deposit-estimation. Pembulatan total mengikuti D-17; tarif awal tetap data demo editable. Tidak ada promosi main, push, atau perubahan database Supabase pada tahap ini.
 
 ## 3. Produk, sumber, dan kewenangan keputusan
 
@@ -125,6 +123,7 @@ Seluruh cakupan yang terlihat di laporan/UI tetap dicatat. Urutan pengerjaan di 
 | D-14 | Mitra demo memakai seed; keputusan terakhir satu akun mengelola satu tempat, menggantikan jawaban beberapa cabang. | DISEPAKATI 2026-11-17 | Pertahankan unique partners.mitra_uid. Tidak perlu schema multi-cabang atau pemilihan cabang pada UI. |
 | D-15 | Pendaftaran mitra diperbolehkan, QR dilarang sampai data lengkap dan disetujui. | DISEPAKATI 2026-11-17 | Role mitra bukan izin otomatis bertransaksi. Alur pelengkapan/persetujuan masih Q-04. |
 | D-16 | Nilai tarif awal boleh memakai contoh yang nanti diubah tim. | DISEPAKATI 2026-11-17 | Rekomendasi: seed/config deterministik dan snapshot transaksi. Formula/presisi masih Q-02/Q-03. |
+| D-17 | Estimasi menjumlahkan hasil semua item terlebih dahulu, lalu membulatkan ke bawah sekali pada total poin. | DISEPAKATI pemilik | Contoh 0,6 + 0,6 menghasilkan 1 poin. Jangan membulatkan per item. Tarif tetap data contoh editable sesuai D-16. |
 
 D-05 menyelesaikan pertanyaan countdown 04:59 pada mockup. D-04 menyelesaikan pertanyaan jumlah jenis sampah per setoran, tetapi perubahan schema masih perlu dibuat. D-06 menetapkan reset masa berlaku; model riwayat token belum dipilih.
 
@@ -371,7 +370,7 @@ Dependency: tidak ada. Hasil: anggota tim dapat memahami posisi proyek dan memil
 - [x] GIT-01 | SELESAI | Baseline lokal db51b4b pada chore/backend-baseline menyimpan 145 perubahan file source/migration/tes/dokumen/bukti desain. Binary lokal diabaikan; pola credential yang diperiksa tidak ditemukan. Tes ulang gagal karena disk penuh dan tercatat pada GIT-03; bukan klaim release/test PASS.
 - [x] GIT-02 | SELESAI | dev dibuat dari baseline db51b4b dan menjadi branch aktif; catatan penyelesaian disimpan melalui commit dokumentasi di dev. main tetap 071320d; tidak ada push atau merge main. Working tree diperiksa setelah commit dokumentasi.
 
-- [ ] GIT-03 | RENCANA | Terhambat ruang penyimpanan.  Ulangi full suite PostgreSQL dan build setelah disk tersedia; baseline run 2026-11-20 gagal karena ruang, bukan dianggap PASS. Server tes sudah dihentikan; cleanup direktori ditolak automatic approval review. Harus lolos sebelum melanjutkan fitur/promotion main.
+- [x] GIT-03 | SELESAI | Run ulang 2026-11-20: seluruh suite PostgreSQL portable exit 0 tanpa SKIP; go build -p 1 -mod=readonly ./... exit 0. Cluster run yang berhasil dihentikan/dibersihkan. Direktori dari kegagalan lama tetap dipertahankan sebagaimana catatan 14.4. Ini gate melanjutkan fitur, bukan promosi main.
 
 - [x] GIT-04 | SELESAI | Guard ruang untuk kedua runner tersedia pada chore/test-runner-preflight. Helper menguji kondisi cukup/kurang; runner portable/Docker pada ruang aktual menolak sebelum startup tanpa perubahan environment/cluster. Ini tidak menyelesaikan GIT-03 atau menggantikan full test.
 
@@ -794,3 +793,7 @@ Baseline ini menyimpan pekerjaan agar tidak hilang; bukan promosi release/main a
 Permintaan pemilik: periksa apakah baseline perlu dibuat lagi dan lanjut jika siap. Hasil: baseline Git masih lengkap dan tidak perlu direkreasi. git merge-base --is-ancestor chore/backend-baseline dev exit 0; git diff --name-only chore/backend-baseline..dev hanya BUILD_PROCESS.md.
 
 Ruang awal sekitar 413.106.176 byte. Tidak dilakukan penghapusan cache/folder atau pengulangan tes yang menulis database pada kondisi ini. Sebagai perbaikan prasyarat, chore/test-runner-preflight menambahkan helper ruang dan skrip uji tanpa alokasi besar. Kedua runner memeriksa drive repo/TEMP/cache Go sebelum melakukan operasi startup. GIT-03 tetap terbuka sampai full suite dan build berhasil dengan ruang memadai. Tidak ada feature branch deposit-estimation, merge dev/main, atau push pada tahap ini.
+
+### Pemeriksaan ulang setelah ruang tersedia
+
+Baseline db51b4b tetap dipakai dan tidak direkreasi. Pada awal run ini C menyediakan sekitar 6.920.720.384 byte sehingga preflight runner lolos. Full suite scripts/test-postgres-portable.ps1 selesai exit 0 tanpa SKIP: HTTP/service, profil, sembilan skenario repository akun, empat kelompok favorit/query mitra, serta CLI seed mitra. Server berhenti dan cluster run ini dibersihkan. go build -p 1 -mod=readonly ./... juga exit 0. Tes service tambahan tanpa VCS stamping/vet bukan pengganti full suite. Pemilik mengonfirmasi floor setelah penjumlahan total pada D-17; nilai tarif awal tetap contoh editable. Tidak ada source aplikasi yang diubah sebelum hasil baseline tersedia. Pengujian Firebase nyata/Supabase/Android end-to-end belum dilakukan.
