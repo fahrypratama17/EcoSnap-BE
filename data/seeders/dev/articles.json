@@ -1,0 +1,86 @@
+[
+  {
+    "id": "90000000-0000-4000-8000-000000000001",
+    "title": "Cara Memilah Sampah Rumah Tangga dengan Benar",
+    "summary": "Panduan singkat memisahkan sampah organik, anorganik, dan residu agar mudah didaur ulang.",
+    "category": "SORTING",
+    "reading_minutes": 4,
+    "introduction": "Memilah sampah dari rumah adalah langkah paling sederhana namun berdampak besar. Sampah yang sudah terpilah lebih mudah diterima bank sampah dan bernilai poin lebih jelas.",
+    "sections": [
+      {"title": "Siapkan tiga wadah", "body": "Gunakan wadah terpisah untuk organik (sisa makanan, daun), anorganik (plastik, kertas, logam, kaca), dan residu (popok, tisu bekas)."},
+      {"title": "Bersihkan sebelum disimpan", "body": "Bilas botol dan kemasan dari sisa makanan atau minuman. Sampah bersih tidak berbau dan lebih mudah diterima mitra."},
+      {"title": "Pisahkan anorganik per jenis", "body": "Kelompokkan plastik, kertas, logam, dan kaca. Setoran per jenis membuat penimbangan dan perhitungan poin lebih akurat."}
+    ],
+    "tip": "Lipat kardus dan pipihkan botol plastik agar hemat tempat.",
+    "is_featured": true,
+    "is_published": true,
+    "published_at": "2026-11-01T01:00:00Z"
+  },
+  {
+    "id": "90000000-0000-4000-8000-000000000002",
+    "title": "Mengenal Jenis Plastik Berdasarkan Kode Daur Ulang",
+    "summary": "Arti angka 1 sampai 7 di bawah kemasan plastik dan mana yang mudah didaur ulang.",
+    "category": "RECYCLING",
+    "reading_minutes": 5,
+    "introduction": "Hampir semua kemasan plastik mencantumkan segitiga dengan angka di dalamnya. Angka ini menunjukkan jenis resin dan memengaruhi cara daur ulangnya.",
+    "sections": [
+      {"title": "Kode 1 (PET) dan 2 (HDPE)", "body": "Botol air mineral dan botol sampo umumnya PET atau HDPE. Keduanya paling banyak diterima pengepul."},
+      {"title": "Kode 4 dan 5", "body": "Kantong plastik (LDPE) dan wadah makanan (PP) dapat didaur ulang, tetapi tidak semua mitra menerimanya. Cek daftar material mitra di aplikasi."},
+      {"title": "Kode 3, 6, dan 7", "body": "PVC, styrofoam (PS), dan plastik campuran sulit didaur ulang. Kurangi pemakaiannya sejak awal."}
+    ],
+    "tip": "Gunakan filter material pada daftar mitra untuk mencari lokasi yang menerima jenis plastikmu.",
+    "is_featured": false,
+    "is_published": true,
+    "published_at": "2026-11-05T01:00:00Z"
+  },
+  {
+    "id": "90000000-0000-4000-8000-000000000003",
+    "title": "Menangani Baterai dan Lampu Bekas",
+    "summary": "Sampah elektronik kecil mengandung bahan berbahaya dan tidak boleh dicampur sampah biasa.",
+    "category": "SPECIAL_WASTE",
+    "reading_minutes": 3,
+    "introduction": "Baterai, lampu, dan elektronik kecil termasuk sampah khusus. Bahan di dalamnya dapat mencemari tanah dan air bila dibuang sembarangan.",
+    "sections": [
+      {"title": "Simpan terpisah dan kering", "body": "Kumpulkan baterai bekas dalam wadah tertutup yang kering. Tutup kutub baterai dengan selotip agar tidak terjadi korsleting."},
+      {"title": "Jangan dibakar atau dibongkar", "body": "Membakar atau membongkar baterai dan lampu dapat melepaskan zat beracun."},
+      {"title": "Serahkan ke titik pengumpulan", "body": "Bawa ke titik pengumpulan sampah elektronik atau mitra yang menerima sampah khusus."}
+    ],
+    "tip": "Lampu neon yang pecah: buka jendela, bersihkan dengan karton, jangan disapu dengan tangan kosong.",
+    "is_featured": true,
+    "is_published": true,
+    "published_at": "2026-11-10T01:00:00Z"
+  },
+  {
+    "id": "90000000-0000-4000-8000-000000000004",
+    "title": "Membuat Kompos Sederhana di Rumah",
+    "summary": "Ubah sisa dapur menjadi pupuk dengan wadah bekas dan sedikit kesabaran.",
+    "category": "GUIDE",
+    "reading_minutes": 6,
+    "introduction": "Sampah organik menyumbang porsi terbesar sampah rumah tangga. Mengomposnya mengurangi beban TPA sekaligus menghasilkan pupuk untuk tanaman.",
+    "sections": [
+      {"title": "Bahan hijau dan cokelat", "body": "Campur bahan hijau (sisa sayur, kulit buah) dengan bahan cokelat (daun kering, kardus sobek) kira-kira 1:2."},
+      {"title": "Jaga kelembapan", "body": "Campuran harus lembap seperti spons yang diperas. Terlalu basah menimbulkan bau, terlalu kering memperlambat proses."},
+      {"title": "Aduk rutin", "body": "Aduk seminggu sekali agar udara masuk. Kompos siap dalam 1-2 bulan saat berwarna gelap dan berbau tanah."}
+    ],
+    "tip": "Hindari daging, tulang, dan minyak agar kompos tidak mengundang hewan.",
+    "is_featured": false,
+    "is_published": true,
+    "published_at": "2026-11-15T01:00:00Z"
+  },
+  {
+    "id": "90000000-0000-4000-8000-000000000005",
+    "title": "EcoSnap Hadir untuk Warga Malang",
+    "summary": "Setor sampah terpilah ke mitra, kumpulkan poin, dan tukarkan dengan voucher.",
+    "category": "NEWS",
+    "reading_minutes": 2,
+    "introduction": "EcoSnap menghubungkan warga dengan bank sampah dan mitra pengelola sampah di sekitar Malang. Konten ini adalah data demo.",
+    "sections": [
+      {"title": "Cara kerja", "body": "Bawa sampah terpilah ke mitra, mitra menimbang dan membuat setoran, lalu pindai QR untuk menerima poin."},
+      {"title": "Tukar poin", "body": "Poin dapat ditukar dengan voucher simulasi di menu reward. Voucher berlaku 7 hari."}
+    ],
+    "tip": "QR setoran hanya berlaku 10 menit. Pindai langsung di lokasi mitra.",
+    "is_featured": false,
+    "is_published": true,
+    "published_at": "2026-11-20T01:00:00Z"
+  }
+]

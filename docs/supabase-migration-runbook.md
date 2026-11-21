@@ -21,7 +21,7 @@ $env:DATABASE_URL = "postgresql://postgres:<password>@<host>:5432/postgres?sslmo
 goose -dir database/migrations postgres $env:DATABASE_URL status
 ```
 
-Yang diharapkan: `00001` **Applied**, `00002`–`00008` **Pending**.
+Yang diharapkan: `00001` **Applied**, `00002`–`00009` **Pending**.
 
 **Berhenti** dan laporkan ke AI jika:
 - `00006` atau `00007` tercatat Applied. Isi kedua file sudah diubah setelah dibuat, jadi versi di database bisa berbeda.
@@ -34,7 +34,7 @@ goose -dir database/migrations postgres $env:DATABASE_URL up
 goose -dir database/migrations postgres $env:DATABASE_URL status
 ```
 
-Semua `00001`–`00008` harus Applied. Setiap file berjalan dalam transaksinya sendiri; jika satu gagal, file itu tidak setengah jadi, catat pesan error-nya.
+Semua `00001`–`00009` harus Applied. Setiap file berjalan dalam transaksinya sendiri; jika satu gagal, file itu tidak setengah jadi, catat pesan error-nya.
 
 Pemeriksaan cepat di SQL editor Supabase:
 
@@ -51,6 +51,7 @@ Semua tabel aplikasi harus `rowsecurity = true` (akses hanya lewat backend Go).
 go run ./cmd/seed-partners --demo --mitra-uid <UID_MITRA_DEMO>
 go run ./cmd/seed-point-rates --demo
 go run ./cmd/seed-rewards --demo
+go run ./cmd/seed-articles --demo
 ```
 
 Semua seed aman diulang dan tidak menimpa data yang sudah ada.

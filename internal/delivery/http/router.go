@@ -71,3 +71,9 @@ func RegisterRewardRoutes(mux *http.ServeMux, verifier middleware.TokenVerifier,
 	mux.Handle("GET /api/v1/me/vouchers/{voucherID}", protect(http.HandlerFunc(rewards.Voucher)))
 	mux.Handle("POST /api/v1/me/vouchers/{voucherID}/use", protect(http.HandlerFunc(rewards.UseVoucher)))
 }
+
+func RegisterArticleRoutes(mux *http.ServeMux, verifier middleware.TokenVerifier, articles *handler.ArticleHandler) {
+	protect := middleware.RequireAuth(verifier)
+	mux.Handle("GET /api/v1/articles", protect(http.HandlerFunc(articles.List)))
+	mux.Handle("GET /api/v1/articles/{articleID}", protect(http.HandlerFunc(articles.Detail)))
+}

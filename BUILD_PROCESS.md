@@ -129,6 +129,7 @@ Seluruh cakupan yang terlihat di laporan/UI tetap dicatat. Urutan pengerjaan di 
 | D-20 | Voucher dipakai sederhana (user menandai sudah dipakai), berlaku 7 hari, tanpa refund (menjawab Q-05). | DISEPAKATI pemilik 2026-11-21 | Penukaran atomik sehingga kegagalan tidak memotong poin; kedaluwarsa/terpakai tidak dikembalikan. Status expired diturunkan dari waktu server. |
 | D-21 | Selama admin ditunda, mitra disetujui/disuspend lewat CLI cmd/verify-partner yang hanya dijalankan pemilik (menjawab Q-04). Mitra non-verified tetap bisa membaca riwayat setorannya (read-only). Mitra tidak dapat klaim QR/tukar reward. Setoran created tanpa QR dibiarkan (menjawab sisa Q-08). | DISEPAKATI pemilik 2026-11-21 | Lokasi dibuat saat approve dari file JSON; tidak menimpa lokasi yang ada. Tidak ada pembersihan otomatis setoran. |
 | D-22 | Edge case 2026-11-21: (A) risiko mitra mengklaim setoran fiktif dengan akun user sendiri diterima untuk demo, diaudit lewat ledger, batas harian sebelum rilis publik; (B) QR yang sudah terbit tetap dapat diklaim walau mitra disuspend; (C) pengecekan token dicabut/akun Firebase nonaktif hanya pada klaim dan redeem; (D) saldo INTEGER dibiarkan. Setoran 0 poin ditolak; respons QR memuat server_time. | DISEPAKATI pemilik 2026-11-21 | (A) dicatat sebagai risiko QA-03; (D) migration BIGINT bila kebutuhan berubah. |
+| D-23 | Artikel memakai data demo; selama admin ditunda isi dikelola lewat data/seeders/dev/articles.json dan cmd/seed-articles (menjawab Q-09 untuk artikel). | DISEPAKATI pemilik 2026-11-21 | Seed artikel melakukan upsert untuk artikel demo saja; artikel non-demo tidak ditimpa. Konten plain text terstruktur sesuai FE-19. |
 
 D-05 menyelesaikan pertanyaan countdown 04:59 pada mockup. D-04 menyelesaikan pertanyaan jumlah jenis sampah per setoran, tetapi perubahan schema masih perlu dibuat. D-06 menetapkan reset masa berlaku; model riwayat token belum dipilih.
 
@@ -165,7 +166,7 @@ Dependency task merujuk ID Q berikut. Anggota tim boleh melanjutkan bagian yang 
 | Q-06 | Model/provider AI, kategori didukung, lokasi inference, confidence/hasil tidak dikenali, biaya, timeout, dan mode sync/async. | PIC foto sampah + tim | Fitur identifikasi nyata dan kebutuhan worker. |
 | Q-07 | Jenis misi, XP/bonus poin/badge, syarat selesai/klaim, replay game, batas farming, reset periode, dan soal Eco Quiz. | PIC gamifikasi + tim | Games/misi/leaderboard final. |
 | Q-08 | Dijawab D-19 dan D-21. | Pemilik | - |
-| Q-09 | Siapa menyediakan/memublikasikan artikel, ide reuse, kategori, soal, dan reward selama admin ditunda. | Pemilik + tim | Konten demo yang dapat dipertanggungjawabkan. |
+| Q-09 | Artikel dijawab D-23 (demo via seed). Sisa: ide reuse, soal game, dan reward selain seed demo. | Pemilik + tim | Konten scan/game. |
 | Q-10 | Notifikasi dalam aplikasi atau push; preferensi terpisah; proses pengiriman dan retensi. | Tim Android + backend | Firebase messaging/worker notifikasi; jangan menganggapnya otomatis termasuk Firebase Auth. |
 | Q-11 | Periode, timezone, tie-break peringkat, visibilitas, dan kapan leaderboard diperbarui. | Tim | Perhitungan leaderboard. |
 | Q-12 | Onboarding sebelum login, profil belum lengkap, email verification, pergantian peran, dan penghapusan/suspensi akun. | Tim Android + backend | Alur akun dan kebijakan akses lengkap. |
@@ -481,7 +482,7 @@ Identifikasi dari foto tidak menggantikan pemeriksaan fisik mitra. Pengukuran ku
 
 Dependency konten: Q-09. Dependency gamifikasi: Q-07/Q-11. Cakupan final rilis menunggu Q-01.
 
-- [ ] CONTENT-01 | RENCANA | Implementasikan artikel publik, pencarian/filter, dan detail. Selesai jika hanya artikel published tampil, Markdown diproses aman di client, dan hasil kosong tersedia.
+- [x] CONTENT-01 | SELESAI | GET /api/v1/articles (q/category/featured/cursor) dan detail; hanya terbit dan sudah waktunya; plain text terstruktur sehingga tidak ada Markdown/HTML yang dieksekusi; hasil kosong berupa array. Migration 00009, seed demo 5 artikel. Kontrak docs/api/articles.md; bukti docs/test-results/articles-2026-11-21.md.
 - [ ] GAME-01 | MENUNGGU KEPUTUSAN | Finalisasi Pilah Cepat/Eco Quiz, bank soal, XP, replay, dan penyelesaian attempt. Selesai jika aturan penilaian dan anti-duplikasi dapat dijadikan test.
 - [ ] GAME-02 | RENCANA | Implementasikan daftar/detail game, attempt, jawaban, penilaian server, dan hasil. Selesai jika client tidak menentukan benar/XP sendiri dan mengirim ulang jawaban tidak menambah XP.
 - [ ] MISSION-01 | MENUNGGU KEPUTUSAN | Finalisasi definisi misi, periode, sumber progres, hadiah, dan klaim. Selesai jika misi jumlah setoran, berat, scan, games, atau kategori berbeda mempunyai aturan yang jelas.
@@ -837,3 +838,7 @@ Pemilik mengizinkan merge, memilih verifikasi mitra via CLI, dan mengikuti saran
 ### Checkpoint edge case, riwayat, dan beranda 2026-11-21
 
 Pemilik meminta review edge case dulu, lalu menyetujui seluruh saran (D-22). feat/history-home dari d57bd5a: setoran 0 poin ditolak, server_time di QR/preview, mode query exec otomatis untuk port 6543, RequireFreshAuth (cek revocation Firebase) pada klaim dan redeem, HISTORY-01 dan HOME-01. Full suite PostgreSQL portable exit 0, 0 SKIP; run pertama gagal karena data uji kasus 0 poin, diperbaiki di tes. Langkah berikut: pemilik menjalankan runbook Supabase dan push untuk CI; fitur berikut menunggu Q-06/Q-07/Q-09 atau integrasi Android.
+
+### Checkpoint artikel 2026-11-21
+
+Pemilik setuju konten artikel demo (D-23). feat/articles dari 3375b0e: migration 00009, endpoint daftar/detail, cmd/seed-articles (upsert demo), 5 artikel demo. Runbook Supabase diperbarui ke 00009 dan seed artikel.
