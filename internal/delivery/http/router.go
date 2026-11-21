@@ -92,3 +92,9 @@ func RegisterSettingsRoutes(mux *http.ServeMux, verifier middleware.TokenVerifie
 	mux.Handle("GET /api/v1/me/settings", protect(http.HandlerFunc(settings.Get)))
 	mux.Handle("PATCH /api/v1/me/settings", protect(http.HandlerFunc(settings.Update)))
 }
+
+func RegisterActivityReportRoutes(mux *http.ServeMux, verifier middleware.TokenVerifier, reports *handler.ActivityReportHandler) {
+	protect := middleware.RequireAuth(verifier)
+	mux.Handle("GET /api/v1/me/activity-report", protect(http.HandlerFunc(reports.Report)))
+	mux.Handle("GET /api/v1/me/activity-report.pdf", protect(http.HandlerFunc(reports.PDF)))
+}
