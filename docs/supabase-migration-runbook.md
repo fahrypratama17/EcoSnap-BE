@@ -1,6 +1,6 @@
 # Runbook: migration dan data demo ke Supabase development
 
-Dijalankan oleh pemilik repo. AI tidak membaca credential dan tidak mengeksekusi ke Supabase. Kondisi terakhir yang dilaporkan pemilik (2026-11-21): migration `00001`–`00009` diterapkan; migration `00010_create_gamification.sql` **belum diterapkan**.
+Dijalankan oleh pemilik repo. AI tidak membaca credential dan tidak mengeksekusi ke Supabase. Laporan pemilik 2026-11-21 pukul 17:37: migration `00010_create_gamification.sql` berhasil dan `goose status` menunjukkan seluruh migration `00001`–`00010` Applied.
 
 ## 0. Sebelum mulai
 
@@ -21,7 +21,7 @@ $env:DATABASE_URL = "postgresql://postgres:<password>@<host>:5432/postgres?sslmo
 goose -dir database/migrations postgres $env:DATABASE_URL status
 ```
 
-Yang diharapkan berdasarkan kondisi terakhir yang dilaporkan: `00001`–`00009` **Applied**, `00010` **Pending**. `00010_create_gamification.sql` menambah tabel `mission_claims` dan trigger immutable pada `mission_claims` dan `deposit_claims`; statusnya belum diverifikasi ulang di Supabase.
+Kondisi terakhir yang dilaporkan: `00001`–`00010` **Applied**. `00010_create_gamification.sql` menambah tabel `mission_claims` dan trigger immutable pada `mission_claims` dan `deposit_claims`. Jangan menjalankan ulang SQL migration secara manual; gunakan Goose.
 
 **Berhenti** dan laporkan ke AI jika:
 - `00006` atau `00007` tercatat Applied tetapi skema remote tidak sesuai laporan kondisi terakhir. Isi kedua file sudah diubah setelah dibuat, jadi versi di database bisa berbeda.
@@ -84,4 +84,10 @@ Prasyarat: server berjalan (`go run ./cmd/app` dengan `DATABASE_URL` dan `GOOGLE
 ./scripts/smoke-test.ps1 -ApiKey <Firebase Web API Key>
 ```
 
-Script meminta password kedua akun (tidak ditampilkan), lalu menjalankan estimasi → setoran → QR → klaim → penukaran reward → voucher dan memeriksa setiap hasilnya (PASS/FAIL). Tiap run membuat 2 setoran dan memakai 1 stok reward 500 poin; aman diulang karena memakai idempotency key baru dan membandingkan saldo secara relatif. Exit code 1 bila ada yang gagal.
+Script meminta password kedua akun (tidak ditampilkan), lalu menjalankan estimasi → setoran → QR → klaim → penukaran reward → voucher, serta misi/XP, badge, leaderboard, dan pengaturan privasi. Restart backend sesudah memperbarui kode; migration 00010 saja tidak menambahkan route pada proses server lama.
+
+Tiap run membuat 2 setoran (total 6,5 kg), memakai 1 stok reward 500 poin, dan mengklaim hadiah misi yang belum diklaim pada minggu berjalan. Hadiah yang sudah diklaim diuji sebagai replay, bukan diharapkan memberi XP lagi. Tidak ada seed XP atau badge yang diperlukan. Saldo dibandingkan relatif terhadap kondisi awal; XP tidak boleh mengubah EcoPoints.
+
+Gunakan akun demo khusus tanpa aktivitas bersamaan dari perangkat atau script lain. Reset Senin 00.00 WIB di tengah run membuat baseline mingguan tidak berlaku: ulangi tes pada periode yang stabil. Script memulihkan visibilitas leaderboard ke nilai awal setelah pengujian privasi; periksa pesan kegagalan pemulihan jika server/jaringan terputus. Exit code 1 bila ada pemeriksaan gagal.
+
+Laporan 36 PASS sebelumnya adalah versi tanpa gamifikasi. Jangan menyebut smoke versi baru lulus sebelum hasil terminalnya tersedia.

@@ -1,6 +1,6 @@
 # Kontrak misi, badge, dan leaderboard
 
-Status: **kode ada (ADA KODE)** pada branch lokal `dev` menurut D-24 dan D-25; tes PostgreSQL dan HTTP terarah lulus tanpa SKIP ([bukti](../test-results/gamification-2026-11-21.md)). Migration `00010_create_gamification.sql` belum diterapkan ke Supabase development; integrasi Android dan Firebase nyata untuk fitur ini belum diuji.
+Status: **kode ada (ADA KODE)** pada branch lokal `dev` menurut D-24 dan D-25; tes PostgreSQL dan HTTP terarah lulus tanpa SKIP ([bukti](../test-results/gamification-2026-11-21.md)). Pemilik melaporkan migration `00001`–`00010` Applied di Supabase development pada 2026-11-21 pukul 17:37. Integrasi Android dan Firebase nyata untuk endpoint gamifikasi belum diuji.
 
 ## Aturan (D-24, D-25)
 

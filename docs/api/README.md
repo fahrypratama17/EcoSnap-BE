@@ -2,7 +2,7 @@
 
 Mulai dari sini. Dokumen per fitur dirujuk di bagian 4; dokumen ini memuat hal yang berlaku di semua endpoint, urutan pemanggilan per layar, dan katalog error.
 
-**Status:** 36 route tercatat di router; 5 route gamifikasi baru belum dibuktikan lewat tes runtime, Supabase, atau Android. Bukti historis smoke test (`scripts/smoke-test.ps1`: 36 pemeriksaan alur setoran → QR → klaim → reward → voucher → riwayat) lulus untuk cakupan sebelum gamifikasi; hasil itu tidak mencakup route gamifikasi. Backend sebelumnya diuji terhadap Supabase development dengan token Firebase nyata. Jika respons berbeda dari dokumen, anggap itu bug backend dan laporkan beserta request-nya.
+**Status:** 36 route tercatat di router; tes PostgreSQL/HTTP terarah untuk gamifikasi lulus ([bukti](../test-results/gamification-2026-11-21.md)). Pemilik melaporkan migration 00001–00010 Applied di Supabase development. Smoke test lama (36 pemeriksaan alur setoran → QR → klaim → reward → voucher → riwayat) lulus dengan token Firebase nyata, tetapi belum mencakup endpoint gamifikasi. Integrasi Android belum diuji. Jika respons berbeda dari dokumen, laporkan beserta request tanpa token/credential.
 
 ## 1. Alamat server
 

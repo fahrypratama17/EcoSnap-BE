@@ -23,4 +23,15 @@ Runner full suite juga dijalankan. Tes lama lulus; suite tersebut gagal pada fix
 
 ## Batas bukti
 
-Belum menerapkan migration 00010 di Supabase development, belum menjalankan endpoint gamifikasi dengan token Firebase nyata, belum mengintegrasikan/menguji UI Android. Smoke test 36 pemeriksaan yang dilaporkan pemilik sebelumnya tidak mencakup gamifikasi. Schema DBML lama bukan representasi schema runtime; migrasi SQL adalah acuan.
+LAPORAN pemilik 2026-11-21 pukul 17:37: migration 00010 sukses dan goose status menunjukkan 00001–00010 Applied di Supabase development. Belum menjalankan endpoint gamifikasi dengan token Firebase nyata, belum mengintegrasikan/menguji UI Android. Smoke test lama 36 pemeriksaan yang dilaporkan pemilik tidak mencakup gamifikasi. Schema DBML lama bukan representasi schema runtime; migrasi SQL adalah acuan.
+
+## Perluasan smoke test
+
+`scripts/smoke-test.ps1` kini memeriksa baseline progres mingguan dan badge, setoran belum diklaim tidak memberi progres, hadiah 50/100 XP, replay tanpa XP ganda, penolakan periode lama dan role mitra, wallet EcoPoints tidak berubah karena XP, serta hide/show leaderboard dengan pemulihan visibilitas awal dalam `finally`. Baseline nonzero dan hadiah yang sudah diklaim didukung; gunakan akun demo tanpa aktivitas bersamaan.
+
+Verifikasi yang dijalankan:
+- Parser Windows PowerShell 5.1.26100.9818: parse OK.
+- Harness sementara mengeksekusi blok gamifikasi/privasi dari AST script sebenarnya dengan respons simulasi: klaim baru, klaim pertama sudah pernah dilakukan, visibilitas awal false/true, pemulihan setelah kegagalan leaderboard untuk kedua nilai awal, dan respons hadiah salah 999 XP yang harus terdeteksi. Semua skenario harness lulus.
+- Harness tidak memakai jaringan, database, atau credential dan sudah dihapus. Pemeriksaan setoran awal berada di luar blok harness; bagian itu hanya tercakup parser dan smoke versi lama.
+
+Ini bukti alur script, **bukan** hasil smoke Firebase/Supabase nyata versi baru. Eksekusi versi baru masih menunggu pemilik.
