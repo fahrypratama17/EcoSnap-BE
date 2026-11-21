@@ -98,3 +98,9 @@ func RegisterActivityReportRoutes(mux *http.ServeMux, verifier middleware.TokenV
 	mux.Handle("GET /api/v1/me/activity-report", protect(http.HandlerFunc(reports.Report)))
 	mux.Handle("GET /api/v1/me/activity-report.pdf", protect(http.HandlerFunc(reports.PDF)))
 }
+
+func RegisterNotificationRoutes(mux *http.ServeMux, verifier middleware.TokenVerifier, notifications *handler.NotificationHandler) {
+	protect := middleware.RequireAuth(verifier)
+	mux.Handle("GET /api/v1/me/notifications", protect(http.HandlerFunc(notifications.List)))
+	mux.Handle("PATCH /api/v1/me/notifications/{notificationID}/read", protect(http.HandlerFunc(notifications.MarkRead)))
+}
