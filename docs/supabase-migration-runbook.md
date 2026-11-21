@@ -42,7 +42,12 @@ Pemeriksaan cepat di SQL editor Supabase:
 SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname='public' ORDER BY 1;
 ```
 
-Semua tabel aplikasi harus `rowsecurity = true` (akses hanya lewat backend Go).
+Semua tabel aplikasi harus `rowsecurity = true` (akses hanya lewat backend Go). `goose_db_version` dibuat Goose tanpa RLS; karena Supabase mengekspos schema `public` lewat REST API, kunci juga tabel ini (Goose memakai role `postgres` sehingga tidak terpengaruh):
+
+```sql
+ALTER TABLE public.goose_db_version ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public.goose_db_version FROM anon, authenticated;
+```
 
 ## 3. Data demo (urutan penting)
 
