@@ -2,7 +2,7 @@
 
 Mulai dari sini. Dokumen per fitur dirujuk di bagian 4; dokumen ini memuat hal yang berlaku di semua endpoint, urutan pemanggilan per layar, dan katalog error.
 
-**Status:** 36 route tercatat di router; tes PostgreSQL/HTTP terarah untuk gamifikasi lulus ([bukti](../test-results/gamification-2026-11-21.md)). Pemilik melaporkan migration 00001–00010 Applied di Supabase development. Smoke test lama (36 pemeriksaan alur setoran → QR → klaim → reward → voucher → riwayat) lulus dengan token Firebase nyata, tetapi belum mencakup endpoint gamifikasi. Integrasi Android belum diuji. Jika respons berbeda dari dokumen, laporkan beserta request tanpa token/credential.
+**Status:** 36 route tercatat di router; tes PostgreSQL/HTTP terarah untuk gamifikasi lulus ([bukti](../test-results/gamification-2026-11-21.md)). Pemilik melaporkan migration 00001–00010 Applied dan smoke test terbaru **57 lulus, 0 gagal** dengan Firebase nyata dan Supabase development, termasuk misi, XP, badge, leaderboard, serta pemulihan privasi. Integrasi Android belum diuji. Jika respons berbeda dari dokumen, laporkan beserta request tanpa token/credential.
 
 ## 1. Alamat server
 
