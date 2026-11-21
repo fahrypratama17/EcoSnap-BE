@@ -51,3 +51,10 @@ func RegisterDepositQRRoutes(mux *http.ServeMux, verifier middleware.TokenVerifi
 	mux.Handle("POST /api/v1/deposit-claims/preview", protect(http.HandlerFunc(qr.Preview)))
 	mux.Handle("POST /api/v1/deposit-claims", protect(http.HandlerFunc(qr.Claim)))
 }
+
+func RegisterWalletRoutes(mux *http.ServeMux, verifier middleware.TokenVerifier, wallets *handler.WalletHandler) {
+	protect := middleware.RequireAuth(verifier)
+	mux.Handle("GET /api/v1/me/wallet", protect(http.HandlerFunc(wallets.Wallet)))
+	mux.Handle("GET /api/v1/me/point-history", protect(http.HandlerFunc(wallets.PointHistory)))
+	mux.Handle("GET /api/v1/partner/deposits", protect(http.HandlerFunc(wallets.PartnerDeposits)))
+}

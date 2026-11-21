@@ -443,7 +443,7 @@ Dependency: otorisasi akun/mitra, migration transaksi, Q-02/Q-03/Q-08/Q-16. Ini 
 - [x] QR-03 | SELESAI | POST /api/v1/deposit-claims/preview tanpa mutasi: mitra, item, berat, poin, expiry.
 - [x] CLAIM-01 | SELESAI | POST /api/v1/deposit-claims: user active pertama (D-18) mendapat poin; claim, ledger, wallet, token, status satu transaksi; 8 klaim paralel → satu penerima, satu kredit.
 - [x] CLAIM-02 | SELESAI | Retry pengklaim yang sama → 200 hasil sama tanpa kredit ulang; pengklaim lain → 409; expired/revoked/invalid dibedakan.
-- [ ] WALLET-01 | RENCANA | Implementasikan saldo/ledger/riwayat setoran pengguna dan mitra dengan ownership, filter, pagination. Selesai jika angka riwayat merekonsiliasi saldo dan satu transaksi tidak tampil sebagai pemberian ganda.
+- [x] WALLET-01 | SELESAI | GET /api/v1/me/wallet, GET /api/v1/me/point-history, GET /api/v1/partner/deposits dengan cursor (created_at DESC, id DESC), filter status mitra, ownership per caller. PostgreSQL: saldo = jumlah ledger, satu klaim satu entri, paging stabil dengan timestamp kembar dan entri baru, pengklaim tidak ditampilkan ke mitra. Kontrak docs/api/wallet-history.md; bukti docs/test-results/wallet-history-2026-11-21.md.
 - [ ] DEPOSIT-04 | RENCANA | Integrasikan seluruh alur Android mitra dan pengguna, termasuk state invalid/expired/used/cancelled/pending hasil. Selesai jika demo dua akun menyelesaikan setoran dan memverifikasi satu kredit ledger.
 - [ ] DEPOSIT-05 | RENCANA | Jalankan skenario integritas pada bagian 11 terhadap PostgreSQL. Selesai jika hasil race, expiry boundary, reissue, retry, dan rollback dicatat bersama constraint yang menjaganya.
 
@@ -818,3 +818,7 @@ Full suite PostgreSQL portable exit 0 tanpa SKIP termasuk TestDepositIntegration
 ### Checkpoint QR bearer dan klaim 2026-11-20
 
 Pemilik memutuskan D-18 (QR bearer, pengklaim pertama, cukup warning) dan D-19 (setoran terkunci setelah QR terbit; koreksi lewat banding Q-17). Enum deposit_status pada 00006 diperluas (belum pernah diterapkan ke Supabase); 00007 menambah deposit_qr_tokens, deposit_claims, point_ledger. Full suite PostgreSQL portable exit 0, 0 SKIP, termasuk TestDepositQRClaimIntegration (8 skenario) dan TestDepositQRHTTP. Belum: Android scan, Firebase/Supabase nyata, WALLET-01 riwayat, banding. Langkah berikut: WALLET-01 (saldo/riwayat ledger) atau REWARD-01/02.
+
+### Checkpoint saldo dan riwayat 2026-11-21
+
+Pemilik menyetujui WALLET-01 sebagai langkah berikut. feat/wallet-history dibuat dari cd1ba52. Tanpa migration baru. Pagination riwayat memakai cursor (bukan offset) karena ledger terus bertambah. Full suite PostgreSQL portable exit 0, 0 SKIP, termasuk TestWalletHistoryIntegration (5 skenario) dan TestWalletHTTP. Langkah berikut: REWARD-01/02/04 (katalog, penukaran atomik dengan debit ledger, koleksi voucher); REWARD-03 menunggu Q-05.
