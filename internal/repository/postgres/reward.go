@@ -48,6 +48,7 @@ func (r *RewardRepository) Reward(ctx context.Context, id string) (entity.Reward
 	}
 	return item, err
 }
+
 // voucherStatus derives expired from server time; expired is never stored.
 const voucherStatus = `CASE WHEN r.status='issued' AND r.expires_at<=clock_timestamp() THEN 'expired' ELSE r.status::text END`
 
