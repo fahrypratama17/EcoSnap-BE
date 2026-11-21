@@ -42,11 +42,26 @@ func decodeCursor(raw string) (*Cursor, error) {
 	return &Cursor{At: t, ID: strings.ToLower(id)}, nil
 }
 
+// HistoryFilter narrows a history list. Kind is the ledger source for point
+// history or the deposit status for partner deposits. From is inclusive,
+// To exclusive.
+type HistoryFilter struct {
+	Kind     *string
+	From, To *time.Time
+}
+
 type WalletStore interface {
 	Wallet(ctx context.Context, uid string) (entity.Wallet, error)
-	PointHistory(ctx context.Context, uid string, limit int, after *Cursor) ([]entity.PointHistoryEntry, error)
-	// PartnerDeposits lists deposits of the caller's verified partner.
-	PartnerDeposits(ctx context.Context, uid string, status *string, limit int, after *Cursor) ([]entity.PartnerDepositSummary, error)
+	PointHistory(ctx context.Context, uid string, f HistoryFilter, limit int, after *Cursor) ([]entity.PointHistoryEntry, error)
+	// PartnerDeposits lists deposits of the caller's location (read-only for
+	// non-verified locations, D-21).
+	PartnerDeposits(ctx context.Context, uid string, f HistoryFilter, limit int, after *Cursor) ([]entity.PartnerDepositSummary, error)
+	// ClaimedDeposit returns a deposit only to the user who claimed it.
+	ClaimedDeposit(ctx context.Context, uid, depositID string) (DepositRecord, error)
+	// UserHome and PartnerHome fill the totals; recent lists come from the
+	// history queries.
+	UserHome(ctx context.Context, uid string) (entity.UserHome, error)
+	PartnerHome(ctx context.Context, uid string) (entity.PartnerHome, error)
 }
 
 type WalletService struct{ store WalletStore }
@@ -54,9 +69,29 @@ type WalletService struct{ store WalletStore }
 func NewWalletService(store WalletStore) *WalletService { return &WalletService{store: store} }
 
 type HistoryQuery struct {
-	Limit  int
-	Cursor string
-	Status string // partner deposits only
+	Limit    int
+	Cursor   string
+	Status   string // partner deposits, vouchers
+	Type     string // point history: deposit | redemption
+	From, To *time.Time
+}
+
+// filter validates the kind against allowed values and the time range.
+func (q HistoryQuery) filter(kind string, allowed ...string) (HistoryFilter, error) {
+	f := HistoryFilter{From: q.From, To: q.To}
+	if q.From != nil && q.To != nil && !q.From.Before(*q.To) {
+		return f, ErrInvalidHistoryQuery
+	}
+	if kind == "" {
+		return f, nil
+	}
+	for _, a := range allowed {
+		if kind == a {
+			f.Kind = &kind
+			return f, nil
+		}
+	}
+	return f, ErrInvalidHistoryQuery
 }
 
 type Page[T any] struct {
@@ -93,7 +128,11 @@ func (s *WalletService) PointHistory(ctx context.Context, uid string, q HistoryQ
 	if err != nil || q.Status != "" {
 		return Page[entity.PointHistoryEntry]{}, ErrInvalidHistoryQuery
 	}
-	items, err := s.store.PointHistory(ctx, uid, limit+1, after)
+	f, err := q.filter(q.Type, "deposit", "redemption")
+	if err != nil {
+		return Page[entity.PointHistoryEntry]{}, err
+	}
+	items, err := s.store.PointHistory(ctx, uid, f, limit+1, after)
 	if err != nil {
 		return Page[entity.PointHistoryEntry]{}, err
 	}
@@ -102,20 +141,47 @@ func (s *WalletService) PointHistory(ctx context.Context, uid string, q HistoryQ
 
 func (s *WalletService) PartnerDeposits(ctx context.Context, uid string, q HistoryQuery) (Page[entity.PartnerDepositSummary], error) {
 	limit, after, err := pageArgs(q)
+	if err != nil || q.Type != "" {
+		return Page[entity.PartnerDepositSummary]{}, ErrInvalidHistoryQuery
+	}
+	f, err := q.filter(q.Status, "created", "qr_issued", "claimed")
 	if err != nil {
 		return Page[entity.PartnerDepositSummary]{}, err
 	}
-	var status *string
-	switch q.Status {
-	case "":
-	case "created", "qr_issued", "claimed":
-		status = &q.Status
-	default:
-		return Page[entity.PartnerDepositSummary]{}, ErrInvalidHistoryQuery
-	}
-	items, err := s.store.PartnerDeposits(ctx, uid, status, limit+1, after)
+	items, err := s.store.PartnerDeposits(ctx, uid, f, limit+1, after)
 	if err != nil {
 		return Page[entity.PartnerDepositSummary]{}, err
 	}
 	return trim(items, limit, func(d entity.PartnerDepositSummary) (time.Time, string) { return d.CreatedAt, d.ID }), nil
+}
+
+func (s *WalletService) ClaimedDeposit(ctx context.Context, uid, depositID string) (entity.Deposit, error) {
+	if !partnerID.MatchString(depositID) {
+		return entity.Deposit{}, ErrDepositNotFound
+	}
+	rec, err := s.store.ClaimedDeposit(ctx, uid, strings.ToLower(depositID))
+	if err != nil {
+		return entity.Deposit{}, err
+	}
+	return depositView(rec), nil
+}
+
+const homeRecent = 3
+
+func (s *WalletService) UserHome(ctx context.Context, uid string) (entity.UserHome, error) {
+	home, err := s.store.UserHome(ctx, uid)
+	if err != nil {
+		return home, err
+	}
+	home.RecentActivity, err = s.store.PointHistory(ctx, uid, HistoryFilter{}, homeRecent, nil)
+	return home, err
+}
+
+func (s *WalletService) PartnerHome(ctx context.Context, uid string) (entity.PartnerHome, error) {
+	home, err := s.store.PartnerHome(ctx, uid)
+	if err != nil {
+		return home, err
+	}
+	home.RecentDeposits, err = s.store.PartnerDeposits(ctx, uid, HistoryFilter{}, homeRecent, nil)
+	return home, err
 }

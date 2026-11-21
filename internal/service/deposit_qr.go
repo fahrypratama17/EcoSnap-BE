@@ -36,6 +36,7 @@ type ClaimPreviewRecord struct {
 	Deposit     DepositRecord
 	PartnerName string
 	ExpiresAt   time.Time
+	ServerTime  time.Time
 }
 type ClaimRecord struct {
 	DepositID, PartnerID string
@@ -79,7 +80,7 @@ func (s *DepositQRService) Issue(ctx context.Context, uid, depositID string) (en
 	if err != nil {
 		return entity.DepositQR{}, err
 	}
-	return entity.DepositQR{DepositID: id, Token: token, IssuedAt: rec.IssuedAt, ExpiresAt: rec.ExpiresAt, Warning: QRBearerWarning}, nil
+	return entity.DepositQR{DepositID: id, Token: token, IssuedAt: rec.IssuedAt, ExpiresAt: rec.ExpiresAt, ServerTime: rec.IssuedAt, Warning: QRBearerWarning}, nil
 }
 
 func (s *DepositQRService) Preview(ctx context.Context, uid, token string) (entity.DepositClaimPreview, error) {
@@ -92,7 +93,7 @@ func (s *DepositQRService) Preview(ctx context.Context, uid, token string) (enti
 		return entity.DepositClaimPreview{}, err
 	}
 	d := depositView(rec.Deposit)
-	return entity.DepositClaimPreview{DepositID: d.ID, PartnerID: d.PartnerID, PartnerName: rec.PartnerName, TotalWeightKG: d.TotalWeightKG, TotalPoints: d.TotalPoints, UsesDemoRates: d.UsesDemoRates, ExpiresAt: rec.ExpiresAt, Items: d.Items}, nil
+	return entity.DepositClaimPreview{DepositID: d.ID, PartnerID: d.PartnerID, PartnerName: rec.PartnerName, TotalWeightKG: d.TotalWeightKG, TotalPoints: d.TotalPoints, UsesDemoRates: d.UsesDemoRates, ExpiresAt: rec.ExpiresAt, ServerTime: rec.ServerTime, Items: d.Items}, nil
 }
 
 func (s *DepositQRService) Claim(ctx context.Context, uid, token string) (entity.DepositClaim, bool, error) {

@@ -18,6 +18,7 @@ var (
 	ErrDepositForbidden      = errors.New("akun belum berwenang membuat setoran")
 	ErrDepositNotFound       = errors.New("setoran tidak ditemukan")
 	ErrDepositConflict       = errors.New("Idempotency-Key sudah dipakai untuk isi setoran berbeda")
+	ErrZeroPoints            = errors.New("total poin setoran 0; tambah berat sebelum menyimpan")
 )
 
 var idempotencyKey = regexp.MustCompile(`^[A-Za-z0-9_-]{8,128}$`)
@@ -77,7 +78,12 @@ func (s *DepositService) Create(ctx context.Context, uid, key string, in entity.
 	}
 	next.RequestHash = hex.EncodeToString(h.Sum(nil))
 	price := func(selection PointRateSelection) (entity.PointEstimate, error) {
-		return priceEstimate(nil, lines, selection)
+		est, err := priceEstimate(nil, lines, selection)
+		// A 0-point deposit would yield a claim with no ledger entry.
+		if err == nil && est.EstimatedPoints == 0 {
+			return est, ErrZeroPoints
+		}
+		return est, err
 	}
 	record, created, err := s.store.CreateDeposit(ctx, next, price)
 	if err != nil {

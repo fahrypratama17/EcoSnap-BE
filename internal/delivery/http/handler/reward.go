@@ -85,7 +85,7 @@ func (h *RewardHandler) Vouchers(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, 401, "unauthorized", "Identitas belum terverifikasi.")
 		return
 	}
-	q, err := historyQuery(r, true)
+	q, err := historyQuery(r, "status")
 	if err != nil {
 		rewardError(w, err)
 		return

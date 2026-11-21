@@ -25,7 +25,28 @@ type Identity struct {
 	EmailVerified bool   `json:"email_verified"`
 }
 
+// RevocationVerifier is implemented by the Firebase Auth client. It also
+// rejects revoked tokens and disabled users, at the cost of a network call.
+type RevocationVerifier interface {
+	VerifyIDTokenAndCheckRevoked(context.Context, string) (*auth.Token, error)
+}
+
 func RequireAuth(client TokenVerifier) func(http.Handler) http.Handler {
+	return requireAuth(client.VerifyIDToken)
+}
+
+// RequireFreshAuth guards operations that move points (claim, redeem): a
+// disabled Firebase account cannot use a still-unexpired token there. A
+// verifier without revocation support (test doubles) falls back to
+// VerifyIDToken.
+func RequireFreshAuth(client TokenVerifier) func(http.Handler) http.Handler {
+	if revocable, ok := client.(RevocationVerifier); ok {
+		return requireAuth(revocable.VerifyIDTokenAndCheckRevoked)
+	}
+	return requireAuth(client.VerifyIDToken)
+}
+
+func requireAuth(verify func(context.Context, string) (*auth.Token, error)) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Cache-Control", "no-store")
@@ -36,7 +57,7 @@ func RequireAuth(client TokenVerifier) func(http.Handler) http.Handler {
 				return
 			}
 
-			tokenStatus, err := client.VerifyIDToken(r.Context(), parts[1])
+			tokenStatus, err := verify(r.Context(), parts[1])
 			if err != nil || tokenStatus == nil || tokenStatus.UID == "" {
 				w.Header().Set("WWW-Authenticate", "Bearer")
 				response.Error(w, http.StatusUnauthorized, "unauthorized", "ID token Firebase tidak valid atau sudah kedaluwarsa.")

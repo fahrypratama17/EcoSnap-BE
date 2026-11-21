@@ -75,6 +75,8 @@ func depositError(w http.ResponseWriter, err error) {
 		response.Error(w, 403, "deposit_forbidden", err.Error())
 	case errors.Is(err, service.ErrDepositNotFound):
 		response.Error(w, 404, "deposit_not_found", err.Error())
+	case errors.Is(err, service.ErrZeroPoints):
+		response.Error(w, 400, "zero_points", err.Error())
 	case errors.Is(err, service.ErrDepositConflict):
 		response.Error(w, 409, "idempotency_conflict", err.Error())
 	case errors.Is(err, service.ErrAccountNotFound), errors.Is(err, service.ErrAccountForbidden):

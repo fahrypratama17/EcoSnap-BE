@@ -33,6 +33,7 @@ Server dalam satu transaksi: mengunci akun dan lokasi (agar suspensi tidak lolos
 | Key sama, isi berbeda | 409 | idempotency_conflict |
 | Key hilang/tidak valid | 400 | invalid_idempotency_key |
 | Item tidak valid | 400 | invalid_estimate |
+| Total poin hasil hitung 0 (berat terlalu kecil) | 400 | zero_points |
 | Material tidak diterima lokasi | 400 | waste_not_accepted |
 | Kategori tidak ada | 404 | waste_category_not_found |
 | Tarif aktif tidak tersedia | 409 | point_rate_unavailable |
@@ -88,14 +89,18 @@ Mitra pemilik menerbitkan QR. Panggilan berikutnya = **reissue**: token lama lan
 
 - Android meng-encode `token` apa adanya ke QR dan **wajib menampilkan `warning`** di layar QR.
 - Token hanya dikembalikan sekali; server menyimpan hash. Jika layar hilang, terbitkan ulang.
-- Countdown memakai `expires_at` dari server, bukan jam perangkat.
+- Countdown: sisa waktu = `expires_at - server_time`, lalu dihitung mundur dengan jam monotonic perangkat. Jangan membandingkan `expires_at` dengan jam HP (bisa salah setel).
 - 201 sukses; 404 `deposit_not_found` (bukan milik caller); 403 `deposit_forbidden`/`account_forbidden`; 409 `deposit_already_claimed`.
 
 ## POST /api/v1/deposit-claims/preview dan POST /api/v1/deposit-claims
 
 Body keduanya: `{"token":"<hasil scan>"}`. Token tidak pernah dikirim lewat URL/query. Hanya akun role `user` yang active.
 
-Preview tidak mengubah apa pun dan mengembalikan `deposit_id, partner_id, partner_name, total_weight_kg, total_points, uses_demo_rates, expires_at, items`. Menutup preview tidak membatalkan setoran.
+Preview tidak mengubah apa pun dan mengembalikan `deposit_id, partner_id, partner_name, total_weight_kg, total_points, uses_demo_rates, expires_at, server_time, items`. Menutup preview tidak membatalkan setoran.
+
+Klaim memakai pemeriksaan token Firebase yang lebih ketat (token dicabut/akun Firebase dinonaktifkan langsung ditolak 401), begitu juga penukaran reward.
+
+Risiko yang diterima untuk demo (D-22): mitra dapat membuat setoran fiktif lalu mengklaimnya dengan akun user lain miliknya. Semua kredit tercatat di `point_ledger` dan dapat diaudit; batas harian dipertimbangkan sebelum rilis publik. QR yang sudah terbit tetap dapat diklaim walaupun mitra disuspend setelahnya.
 
 Klaim mengembalikan `deposit_id, partner_id, points, claimed_at, wallet_balance`. 201 klaim baru; 200 bila pengklaim yang sama mengulang (respons sebelumnya hilang) — tidak dikreditkan dua kali.
 

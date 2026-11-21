@@ -72,7 +72,7 @@ func TestDepositQRClaimIntegration(t *testing.T) {
 		code, _ := qr.Issue(ctx, "owner-a", d.ID)
 		before := wallet(t, "plain-user")
 		p, err := qr.Preview(ctx, "plain-user", code.Token)
-		if err != nil || p.TotalPoints != 455 || p.PartnerName != "Tunas" || len(p.Items) != 2 || !p.ExpiresAt.Equal(code.ExpiresAt) {
+		if err != nil || p.TotalPoints != 455 || p.PartnerName != "Tunas" || len(p.Items) != 2 || !p.ExpiresAt.Equal(code.ExpiresAt) || !p.ServerTime.After(code.IssuedAt) || !p.ServerTime.Before(p.ExpiresAt) {
 			t.Fatalf("preview: %+v %v", p, err)
 		}
 		if wallet(t, "plain-user") != before || status(t, d.ID) != "qr_issued" {

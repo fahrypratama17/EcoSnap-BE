@@ -13,14 +13,18 @@ import (
 	"github.com/fahrypratama17/EcoSnap-BE/internal/service"
 )
 
-// walletMemory returns three ledger entries and records the requested limit.
-type walletMemory struct{ limit int }
+// walletMemory returns three ledger entries and records the requested limit
+// and filter.
+type walletMemory struct {
+	limit  int
+	filter service.HistoryFilter
+}
 
 func (m *walletMemory) Wallet(context.Context, string) (entity.Wallet, error) {
 	return entity.Wallet{Balance: 450}, nil
 }
-func (m *walletMemory) PointHistory(_ context.Context, _ string, limit int, after *service.Cursor) ([]entity.PointHistoryEntry, error) {
-	m.limit = limit
+func (m *walletMemory) PointHistory(_ context.Context, _ string, f service.HistoryFilter, limit int, after *service.Cursor) ([]entity.PointHistoryEntry, error) {
+	m.limit, m.filter = limit, f
 	out := []entity.PointHistoryEntry{}
 	for i := range 3 {
 		id := []string{"70000000-0000-4000-8000-000000000003", "70000000-0000-4000-8000-000000000002", "70000000-0000-4000-8000-000000000001"}[i]
@@ -34,8 +38,17 @@ func (m *walletMemory) PointHistory(_ context.Context, _ string, limit int, afte
 	}
 	return out, nil
 }
-func (m *walletMemory) PartnerDeposits(context.Context, string, *string, int, *service.Cursor) ([]entity.PartnerDepositSummary, error) {
+func (m *walletMemory) PartnerDeposits(context.Context, string, service.HistoryFilter, int, *service.Cursor) ([]entity.PartnerDepositSummary, error) {
 	return []entity.PartnerDepositSummary{}, nil
+}
+func (m *walletMemory) ClaimedDeposit(context.Context, string, string) (service.DepositRecord, error) {
+	return service.DepositRecord{}, service.ErrDepositNotFound
+}
+func (m *walletMemory) UserHome(context.Context, string) (entity.UserHome, error) {
+	return entity.UserHome{TotalWeightKG: "0.000"}, nil
+}
+func (m *walletMemory) PartnerHome(context.Context, string) (entity.PartnerHome, error) {
+	return entity.PartnerHome{}, service.ErrDepositForbidden
 }
 
 func TestWalletHTTP(t *testing.T) {
@@ -78,14 +91,25 @@ func TestWalletHTTP(t *testing.T) {
 		"/api/v1/me/point-history?limit=1&limit=2",
 		"/api/v1/me/point-history?uid=other",
 		"/api/v1/me/point-history?status=claimed",
+		"/api/v1/me/point-history?type=bonus",
+		"/api/v1/me/point-history?from=2026-11-01",
+		"/api/v1/me/point-history?from=2026-11-02T00:00:00Z&to=2026-11-01T00:00:00Z",
+		"/api/v1/partner/deposits?type=deposit",
+		"/api/v1/me/home?x=1",
 		"/api/v1/me/point-history?cursor=bad!",
 		"/api/v1/partner/deposits?status=cancelled",
 		"/api/v1/me/wallet?uid=other",
 	} {
 		get(path, 400)
 	}
-	get("/api/v1/partner/deposits?status=claimed&limit=5", 200)
-	if w := accountRequest(mux, "GET", "/api/v1/me/wallet", ""); w.Code != 200 {
-		t.Fatalf("wallet: %d %s", w.Code, w.Body)
+	get("/api/v1/partner/deposits?status=claimed&limit=5&from=2026-11-01T00:00:00Z", 200)
+	get("/api/v1/me/point-history?type=redemption&from=2026-11-01T00:00:00%2B07:00&to=2026-12-01T00:00:00Z", 200)
+	if store.filter.Kind == nil || *store.filter.Kind != "redemption" || store.filter.From == nil || !store.filter.From.Equal(time.Date(2026, 10, 31, 17, 0, 0, 0, time.UTC)) {
+		t.Fatalf("filter not passed: %+v", store.filter)
+	}
+	for path, want := range map[string]int{"/api/v1/me/wallet": 200, "/api/v1/me/home": 200, "/api/v1/partner/home": 403, "/api/v1/me/deposits/60000000-0000-4000-8000-000000000001": 404} {
+		if w := accountRequest(mux, "GET", path, ""); w.Code != want {
+			t.Fatalf("%s: %d %s", path, w.Code, w.Body)
+		}
 	}
 }

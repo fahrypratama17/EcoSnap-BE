@@ -136,7 +136,7 @@ func (r *DepositRepository) PreviewQR(ctx context.Context, uid, tokenHash string
 	if out.Deposit, err = loadDeposit(ctx, tx, s.depositID, nil); err != nil {
 		return out, err
 	}
-	out.ExpiresAt = s.expiresAt
+	out.ExpiresAt, out.ServerTime = s.expiresAt, s.now
 	if err = tx.QueryRow(ctx, `SELECT business_name FROM public.partners WHERE id=$1::uuid`, out.Deposit.PartnerID).Scan(&out.PartnerName); err != nil {
 		return out, err
 	}

@@ -156,6 +156,8 @@ func TestDepositIntegration(t *testing.T) {
 			{"missing-uid", request, service.ErrAccountNotFound},
 			{"owner-a", entity.DepositCreateRequest{Items: []entity.PointEstimateInput{{CategoryID: plastic, WeightKG: "1"}, {CategoryID: glass, WeightKG: "1"}}}, service.ErrWasteNotAccepted},
 			{"owner-a", entity.DepositCreateRequest{Items: []entity.PointEstimateInput{{CategoryID: plastic, WeightKG: "0"}}}, service.ErrInvalidEstimate},
+			// The tariff subtest raised plastic to 999/kg: 0.001 kg → 0.999 → 0 points.
+			{"owner-a", entity.DepositCreateRequest{Items: []entity.PointEstimateInput{{CategoryID: plastic, WeightKG: "0.001"}}}, service.ErrZeroPoints},
 		} {
 			if _, _, err := deposits.Create(ctx, tt.uid, "key-reject-1", tt.req); !errors.Is(err, tt.want) {
 				t.Fatalf("%s: want %v, got %v", tt.uid, tt.want, err)

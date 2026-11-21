@@ -6,6 +6,7 @@ Dijalankan oleh pemilik repo. AI tidak membaca credential dan tidak mengeksekusi
 
 - Pastikan project yang dipakai adalah **development**, bukan production.
 - Ambil connection string **direct** (port 5432) atau **session pooler** dari Supabase → Project Settings → Database. Jangan pakai transaction pooler (port 6543) untuk migration.
+- Untuk server aplikasi juga pakai 5432/session pooler. Jika terpaksa 6543, backend otomatis beralih ke mode query tanpa prepared statement (sedikit lebih lambat); migration tetap wajib lewat 5432.
 - Simpan di environment shell saja, jangan di file yang di-commit:
 
 ```powershell

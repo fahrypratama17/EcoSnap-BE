@@ -27,7 +27,10 @@ type DepositQR struct {
 	Token     string    `json:"token"`
 	IssuedAt  time.Time `json:"issued_at"`
 	ExpiresAt time.Time `json:"expires_at"`
-	Warning   string    `json:"warning"`
+	// ServerTime lets Android count down as expires_at - server_time instead
+	// of trusting the device clock.
+	ServerTime time.Time `json:"server_time"`
+	Warning    string    `json:"warning"`
 }
 
 type ClaimTokenRequest struct {
@@ -42,6 +45,7 @@ type DepositClaimPreview struct {
 	TotalPoints   int64               `json:"total_points"`
 	UsesDemoRates bool                `json:"uses_demo_rates"`
 	ExpiresAt     time.Time           `json:"expires_at"`
+	ServerTime    time.Time           `json:"server_time"`
 	Items         []PointEstimateItem `json:"items"`
 }
 

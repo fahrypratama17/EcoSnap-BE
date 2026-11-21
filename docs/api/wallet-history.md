@@ -62,4 +62,46 @@ Identitas pengklaim tidak ditampilkan ke mitra. `claimed_at` null selama belum d
 | Bukan mitra / lokasi belum verified (partner/deposits) | 403 | deposit_forbidden |
 | Timeout | 504 | request_timeout |
 
-Batas: mitra yang lokasinya disuspend tidak dapat melihat riwayat setorannya; perubahan aturan menunggu Q-04.
+Mitra dengan lokasi pending/suspended/rejected tetap dapat membaca riwayat dan ringkasan setorannya (read-only, D-21); membuat setoran/QR tetap ditolak.
+
+## Filter riwayat (HISTORY-01)
+
+| Endpoint | Parameter tambahan |
+|---|---|
+| `GET /api/v1/me/point-history` | `type` = `deposit` \| `redemption`, `from`, `to` |
+| `GET /api/v1/partner/deposits` | `status`, `from`, `to` |
+
+- `from` inklusif, `to` eksklusif, format RFC 3339 dengan zona waktu, mis. `2026-11-01T00:00:00Z`. Tanda `+` pada offset wajib di-encode (`%2B07:00`), atau gunakan `Z`.
+- `from` harus sebelum `to`. Filter digabung dengan cursor; cursor dari query berbeda tidak boleh dipakai ulang.
+- Android menentukan batas hari/bulan menurut zona waktu pengguna lalu mengirimnya sebagai timestamp.
+
+## GET /api/v1/me/deposits/{depositID}
+
+Detail setoran (item, berat, tarif snapshot) untuk **user yang mengklaimnya**, dari tombol detail di riwayat poin. Format sama dengan detail setoran mitra. User lain, mitra, atau setoran yang belum diklaim → 404 `deposit_not_found`.
+
+## GET /api/v1/me/home (HOME-01)
+
+```json
+{"data":{
+  "wallet":{"balance":200,"total_earned":300,"total_spent":100,"updated_at":"…"},
+  "deposits_claimed":2,
+  "total_weight_kg":"2.000",
+  "active_vouchers":1,
+  "recent_activity":[ …maks. 3 entri riwayat poin… ]
+}}
+```
+
+Angka bersifat sepanjang waktu (all-time). `active_vouchers` = voucher issued yang belum kedaluwarsa. Misi/badge ditambahkan setelah Q-07.
+
+## GET /api/v1/partner/home
+
+```json
+{"data":{
+  "partner_id":"…","business_name":"Bank Sampah Tunas","partner_status":"verified",
+  "deposits":{"created":1,"qr_issued":1,"claimed":2},
+  "claimed_weight_kg":"2.000","claimed_points":300,
+  "recent_deposits":[ …maks. 3 ringkasan setoran… ]
+}}
+```
+
+`partner_status` dipakai Android untuk menampilkan banner "menunggu verifikasi"/"disuspend". Akun tanpa lokasi atau bukan mitra → 403 `deposit_forbidden`.

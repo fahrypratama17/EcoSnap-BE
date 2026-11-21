@@ -128,6 +128,7 @@ Seluruh cakupan yang terlihat di laporan/UI tetap dicatat. Urutan pengerjaan di 
 | D-19 | Setelah QR terbit, setoran terkunci: tidak dapat diedit atau dibatalkan (menjawab bagian Q-08). Reissue tetap boleh selama belum diklaim. | DISEPAKATI pemilik 2026-11-20 | Koreksi/pengembalian poin hanya melalui sistem banding di masa depan (Q-17). Penolakan fisik dilakukan sebelum setoran dibuat. |
 | D-20 | Voucher dipakai sederhana (user menandai sudah dipakai), berlaku 7 hari, tanpa refund (menjawab Q-05). | DISEPAKATI pemilik 2026-11-21 | Penukaran atomik sehingga kegagalan tidak memotong poin; kedaluwarsa/terpakai tidak dikembalikan. Status expired diturunkan dari waktu server. |
 | D-21 | Selama admin ditunda, mitra disetujui/disuspend lewat CLI cmd/verify-partner yang hanya dijalankan pemilik (menjawab Q-04). Mitra non-verified tetap bisa membaca riwayat setorannya (read-only). Mitra tidak dapat klaim QR/tukar reward. Setoran created tanpa QR dibiarkan (menjawab sisa Q-08). | DISEPAKATI pemilik 2026-11-21 | Lokasi dibuat saat approve dari file JSON; tidak menimpa lokasi yang ada. Tidak ada pembersihan otomatis setoran. |
+| D-22 | Edge case 2026-11-21: (A) risiko mitra mengklaim setoran fiktif dengan akun user sendiri diterima untuk demo, diaudit lewat ledger, batas harian sebelum rilis publik; (B) QR yang sudah terbit tetap dapat diklaim walau mitra disuspend; (C) pengecekan token dicabut/akun Firebase nonaktif hanya pada klaim dan redeem; (D) saldo INTEGER dibiarkan. Setoran 0 poin ditolak; respons QR memuat server_time. | DISEPAKATI pemilik 2026-11-21 | (A) dicatat sebagai risiko QA-03; (D) migration BIGINT bila kebutuhan berubah. |
 
 D-05 menyelesaikan pertanyaan countdown 04:59 pada mockup. D-04 menyelesaikan pertanyaan jumlah jenis sampah per setoran, tetapi perubahan schema masih perlu dibuat. D-06 menetapkan reset masa berlaku; model riwayat token belum dipilih.
 
@@ -493,8 +494,8 @@ Dependency konten: Q-09. Dependency gamifikasi: Q-07/Q-11. Cakupan final rilis m
 
 Dependency: fitur sumber data yang digunakan. Bagian ini mengagregasi hasil fitur lain tanpa membuat ledger kedua.
 
-- [ ] HOME-01 | RENCANA | Implementasikan ringkasan beranda/profil: saldo, jumlah setoran, misi, mitra sekitar, dan pencapaian yang masuk scope. Selesai jika metrik mempunyai definisi periode dan sesuai data sumber.
-- [ ] HISTORY-01 | RENCANA | Implementasikan riwayat gabungan scan/setoran/redeem dengan filter jenis/waktu serta detail ownership. Selesai jika pagination stabil, status benar, dan jumlah saldo tidak dihitung dua kali.
+- [ ] HOME-01 | ADA KODE | GET /api/v1/me/home (saldo, klaim, berat, voucher aktif, 3 aktivitas) dan GET /api/v1/partner/home (status lokasi, hitungan per status, berat/poin terklaim, 3 setoran) lolos PostgreSQL; definisi all-time. Misi/pencapaian menunggu Q-07, mitra sekitar memakai GET /api/v1/partners. Bukti docs/test-results/history-home-2026-11-21.md.
+- [ ] HISTORY-01 | ADA KODE | Filter type/from/to pada riwayat poin dan status/from/to pada riwayat setoran mitra, detail setoran untuk pengklaim (GET /api/v1/me/deposits/{id}); cursor tetap stabil, saldo = ledger. Scan menyusul SCAN-02 (Q-06).
 - [ ] SETTINGS-01 | MENUNGGU KEPUTUSAN | Implementasikan onboarding, preferensi notifikasi, privasi leaderboard, dan kebutuhan akun sesuai Q-10/Q-12. Selesai jika pilihan tersimpan dan dipatuhi fitur terkait.
 - [ ] NOTIFY-01 | MENUNGGU KEPUTUSAN | Definisikan kejadian notifikasi, channel, retry, dan status dibaca. Selesai jika kebutuhan push/in-app dibedakan dan tidak membocorkan data privat.
 - [ ] NOTIFY-02 | RENCANA | Implementasikan channel yang disetujui dan daftar notifikasi. Selesai jika pengiriman ulang tidak menghasilkan spam/duplikasi tidak terkendali dan preferensi dipatuhi.
@@ -832,3 +833,7 @@ Pemilik memutuskan D-20 (pakai sederhana, 7 hari, tanpa refund). feat/reward-red
 ### Checkpoint verifikasi mitra, CI, dan runbook 2026-11-21
 
 Pemilik mengizinkan merge, memilih verifikasi mitra via CLI, dan mengikuti saran sisanya (D-21). dev di-fast-forward ke 484e7ca (rantai estimasi → setoran → wallet → reward); tidak ada push. chore/partner-verification-cli: cmd/verify-partner + contoh lokasi, riwayat setoran read-only untuk mitra non-verified, workflow CI, runbook Supabase. Langkah berikut: pemilik menjalankan runbook; AI melanjutkan HISTORY-01 dan HOME-01.
+
+### Checkpoint edge case, riwayat, dan beranda 2026-11-21
+
+Pemilik meminta review edge case dulu, lalu menyetujui seluruh saran (D-22). feat/history-home dari d57bd5a: setoran 0 poin ditolak, server_time di QR/preview, mode query exec otomatis untuk port 6543, RequireFreshAuth (cek revocation Firebase) pada klaim dan redeem, HISTORY-01 dan HOME-01. Full suite PostgreSQL portable exit 0, 0 SKIP; run pertama gagal karena data uji kasus 0 poin, diperbaiki di tes. Langkah berikut: pemilik menjalankan runbook Supabase dan push untuk CI; fitur berikut menunggu Q-06/Q-07/Q-09 atau integrasi Android.
