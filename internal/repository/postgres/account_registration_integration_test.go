@@ -95,7 +95,7 @@ func applyAccountMigrations(t *testing.T, pool *pgxpool.Pool, up bool) {
 		t.Fatal("cannot locate migration directory")
 	}
 	root := filepath.Join(filepath.Dir(file), "..", "..", "..", "database", "migrations")
-	names := []string{"00001_create_accounts.sql", "00002_create_partner_registrations.sql", "00003_create_partners_and_categories.sql", "00004_create_partner_favorites.sql", "00005_create_point_rates.sql", "00006_create_deposits.sql", "00007_create_deposit_qr_and_ledger.sql", "00008_create_rewards.sql", "00009_create_articles.sql", "00010_create_gamification.sql", "00011_create_notifications.sql"}
+	names := []string{"00001_create_accounts.sql", "00002_create_partner_registrations.sql", "00003_create_partners_and_categories.sql", "00004_create_partner_favorites.sql", "00005_create_point_rates.sql", "00006_create_deposits.sql", "00007_create_deposit_qr_and_ledger.sql", "00008_create_rewards.sql", "00009_create_articles.sql", "00010_create_gamification.sql", "00011_create_notifications.sql", "00012_create_support_tickets.sql"}
 	if !up {
 		for i, j := 0, len(names)-1; i < j; i, j = i+1, j-1 {
 			names[i], names[j] = names[j], names[i]

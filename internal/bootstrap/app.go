@@ -35,6 +35,7 @@ func NewServer(cfg config.Config, verifier middleware.TokenVerifier, pool *pgxpo
 	httpdelivery.RegisterSettingsRoutes(mux, verifier, handler.NewSettingsHandler(service.NewSettingsService(postgres.NewSettingsRepository(pool))))
 	httpdelivery.RegisterActivityReportRoutes(mux, verifier, handler.NewActivityReportHandler(service.NewActivityReportService(postgres.NewActivityReportRepository(pool))))
 	httpdelivery.RegisterNotificationRoutes(mux, verifier, handler.NewNotificationHandler(service.NewNotificationService(postgres.NewNotificationRepository(pool))))
+	httpdelivery.RegisterSupportRoutes(mux, verifier, handler.NewSupportHandler(service.NewSupportService(postgres.NewSupportRepository(pool))))
 	return &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           mux,
