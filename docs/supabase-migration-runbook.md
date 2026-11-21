@@ -23,6 +23,8 @@ goose -dir database/migrations postgres $env:DATABASE_URL status
 
 Kondisi terakhir yang dilaporkan: `00001`–`00010` **Applied**. `00010_create_gamification.sql` menambah tabel `mission_claims` dan trigger immutable pada `mission_claims` dan `deposit_claims`. Jangan menjalankan ulang SQL migration secara manual; gunakan Goose.
 
+Tambahan lokal yang belum diterapkan/dibuktikan di Supabase: `00011_create_notifications.sql` (inbox dan trigger peristiwa) dan `00012_create_support_tickets.sql` (antrean bantuan dan penjaga data asli). Jangan mengedit 00001–00010 yang sudah Applied.
+
 **Berhenti** dan laporkan ke AI jika:
 - `00006` atau `00007` tercatat Applied tetapi skema remote tidak sesuai laporan kondisi terakhir. Isi kedua file sudah diubah setelah dibuat, jadi versi di database bisa berbeda.
 - Tabel `goose_db_version` tidak ada padahal tabel `accounts` ada (00001 dulu diterapkan manual). Perlu baseline dulu, jangan langsung `up`.
@@ -34,7 +36,7 @@ goose -dir database/migrations postgres $env:DATABASE_URL up
 goose -dir database/migrations postgres $env:DATABASE_URL status
 ```
 
-Semua `00001`–`00010` harus Applied. Setiap file berjalan dalam transaksinya sendiri; jika satu gagal, file itu tidak setengah jadi, catat pesan error-nya.
+Setelah memperbarui backend, target terbaru adalah `00001`–`00012` Applied. Setiap file berjalan dalam transaksinya sendiri; jika satu gagal, file itu tidak setengah jadi, catat pesan error-nya. Migration baru tidak memasukkan notifikasi dari transaksi lama dan tidak memerlukan seed baru.
 
 Pemeriksaan cepat di SQL editor Supabase:
 
@@ -91,3 +93,26 @@ Tiap run membuat 2 setoran (total 6,5 kg), memakai 1 stok reward 500 poin, dan m
 Gunakan akun demo khusus tanpa aktivitas bersamaan dari perangkat atau script lain. Reset Senin 00.00 WIB di tengah run membuat baseline mingguan tidak berlaku: ulangi tes pada periode yang stabil. Script memulihkan visibilitas leaderboard ke nilai awal setelah pengujian privasi; periksa pesan kegagalan pemulihan jika server/jaringan terputus. Exit code 1 bila ada pemeriksaan gagal.
 
 Laporan 36 PASS sebelumnya adalah versi tanpa gamifikasi. Jangan menyebut smoke versi baru lulus sebelum hasil terminalnya tersedia.
+
+## 7. Smoke pengaturan akun saja
+
+Restart backend dari terminal yang sudah memiliki `DATABASE_URL` dan `GOOGLE_APPLICATION_CREDENTIALS` (`Ctrl+C`, lalu `go run ./cmd/app`). Endpoint settings tidak memerlukan migration tambahan; server lama tetap akan mengembalikan 404 sampai direstart.
+
+```powershell
+./scripts/smoke-test.ps1 -ApiKey <Firebase Web API Key> -SettingsOnly
+```
+
+Masukkan password kedua akun melalui prompt tersembunyi. Mode ini menguji pengaturan user/mitra, PATCH parsial/retry, nilai boolean, isolasi akun, konsistensi dengan profil dan wallet, serta pemulihan nilai semula. Tidak membuat setoran, mengklaim XP, atau memakai stok reward. Gunakan akun demo tanpa aktivitas bersamaan. Jika pemulihan gagal akibat jaringan/server, periksa nilai lewat GET /api/v1/me/settings dan kembalikan sesuai baseline yang dicatat sebelum tes.
+
+Jangan kirim password/token ke chat. Kirim hanya baris PASS/FAIL dan ringkasan hasil. Push fitur settings menunggu hasil tes nyata; laporan 57 PASS sebelumnya tidak mencakup endpoint settings.
+
+## 8. Laporan, bantuan, dan notifikasi
+
+Setelah memeriksa status Goose dan menerapkan 00011–00012, restart server. Kontrak: [statistik/PDF](api/activity-reports.md), [FAQ/tiket](api/support.md), [inbox](api/notifications.md). Laporan hanya menghitung setoran terklaim dan tidak mengubah saldo. FAQ memakai teks demo tanpa seed.
+
+Tiket perlu ditindaklanjuti pemilik melalui `go run ./cmd/support-tickets list --status open`; CLI `reply`/`status` memerlukan `--confirm`. Kredensial database tetap di environment, bukan argumen atau chat. Tidak ada email/push; pengguna membuka tiket untuk melihat balasan.
+
+Inbox dibuat atomik bersama klaim setoran, penukaran dan klaim XP yang baru, mengikuti `notification_enabled`. Backend harus memakai role pemilik migration seperti konfigurasi saat ini; role runtime berbeda membutuhkan grant tabel/fungsi dan kebijakan akses yang sesuai. Akun `anon`/`authenticated` tetap tidak diberi akses langsung.
+
+Smoke 57 PASS dan mode SettingsOnly belum membuktikan tiga fitur baru ini. Verifikasi nyata selanjutnya perlu memeriksa angka laporan/unduhan PDF, tiket-balasan CLI, dan inbox/read melalui token akun masing-masing; jangan menyebutnya lulus sebelum hasil ada.
+
