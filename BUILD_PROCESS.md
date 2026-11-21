@@ -126,6 +126,7 @@ Seluruh cakupan yang terlihat di laporan/UI tetap dicatat. Urutan pengerjaan di 
 | D-17 | Estimasi menjumlahkan hasil semua item terlebih dahulu, lalu membulatkan ke bawah sekali pada total poin. | DISEPAKATI pemilik | Contoh 0,6 + 0,6 menghasilkan 1 poin. Jangan membulatkan per item. Tarif tetap data contoh editable sesuai D-16. |
 | D-18 | QR setoran bersifat bearer: siapa pun yang mengklaim pertama kali mendapatkan poin (menjawab Q-16). | DISEPAKATI pemilik 2026-11-20 | Penerbitan QR mengembalikan warning agar mitra hanya menunjukkan QR kepada penyetor. Klaim satu kali, atomik dengan ledger dan wallet. Hanya akun role user active yang dapat mengklaim. |
 | D-19 | Setelah QR terbit, setoran terkunci: tidak dapat diedit atau dibatalkan (menjawab bagian Q-08). Reissue tetap boleh selama belum diklaim. | DISEPAKATI pemilik 2026-11-20 | Koreksi/pengembalian poin hanya melalui sistem banding di masa depan (Q-17). Penolakan fisik dilakukan sebelum setoran dibuat. |
+| D-20 | Voucher dipakai sederhana (user menandai sudah dipakai), berlaku 7 hari, tanpa refund (menjawab Q-05). | DISEPAKATI pemilik 2026-11-21 | Penukaran atomik sehingga kegagalan tidak memotong poin; kedaluwarsa/terpakai tidak dikembalikan. Status expired diturunkan dari waktu server. |
 
 D-05 menyelesaikan pertanyaan countdown 04:59 pada mockup. D-04 menyelesaikan pertanyaan jumlah jenis sampah per setoran, tetapi perubahan schema masih perlu dibuat. D-06 menetapkan reset masa berlaku; model riwayat token belum dipilih.
 
@@ -158,7 +159,7 @@ Dependency task merujuk ID Q berikut. Anggota tim boleh melanjutkan bagian yang 
 | Q-02 | Tarif usaha final dan siapa yang mengelolanya. Implementasi demo memakai tarif per kategori, override mitra, fallback global, versi aktif terbaru (migration 00005). | Pemilik + tim | Persetujuan tarif produksi/admin; estimator demo sudah dapat diuji. |
 | Q-03 | Pembulatan total floor sudah dipilih pemilik (D-17). Implementasi demo memakai gram, total 0.001-1000 kg, 1-50 kategori unik dan penolakan kategori ganda. Batas bisnis final belum disepakati. | Pemilik + tim | Validasi batas saat demo tim dan reuse perhitungan pada setoran nyata. |
 | Q-04 | Seed mitra demo, pendaftaran pending tanpa QR, dan keputusan terakhir satu akun satu tempat sudah dikonfirmasi. Siapa melengkapi/menyetujui data serta mekanisme manual selama admin ditunda masih terbuka. | Pemilik + tim | Onboarding lengkap dan persetujuan mitra; struktur multi-cabang tidak diperlukan. |
-| Q-05 | Voucher simulasi dengan sistem nyata sudah dikonfirmasi. Cara pakai, stok/unlimited, expiry, cancel, dan refund masih terbuka. | Pemilik + tim | Lifecycle redemption lengkap. |
+| Q-05 | Dijawab D-20: pakai sederhana, 7 hari, tanpa refund. Stok terbatas (tanpa opsi unlimited). | Pemilik | - |
 | Q-06 | Model/provider AI, kategori didukung, lokasi inference, confidence/hasil tidak dikenali, biaya, timeout, dan mode sync/async. | PIC foto sampah + tim | Fitur identifikasi nyata dan kebutuhan worker. |
 | Q-07 | Jenis misi, XP/bonus poin/badge, syarat selesai/klaim, replay game, batas farming, reset periode, dan soal Eco Quiz. | PIC gamifikasi + tim | Games/misi/leaderboard final. |
 | Q-08 | Sebagian dijawab D-19 (terkunci setelah QR terbit; histori semua penerbitan QR disimpan). Sisa: kebijakan setoran created yang tidak pernah diberi QR. | PIC transaksi + tim | Pembersihan setoran terbengkalai. |
@@ -453,10 +454,10 @@ Status header setoran dan status token diuji sebagai dua hal berbeda. Mematikan 
 
 Dependency: wallet/ledger yang benar; Q-05. D-08 tetap menjadi arah sementara sampai batas simulasi dikonfirmasi.
 
-- [ ] REWARD-01 | RENCANA | Implementasikan katalog/detail kategori reward yang aktif. Selesai jika biaya, terms, stok/ketidaktersediaan ditampilkan konsisten; data contoh diberi label demo.
-- [ ] REWARD-02 | RENCANA | Implementasikan penukaran atomik dengan idempotency, pemeriksaan saldo dan stok. Selesai jika request paralel tidak membuat saldo/stok negatif atau memotong dua kali.
-- [ ] REWARD-03 | MENUNGGU KEPUTUSAN | Implementasikan voucher simulasi dan transisi requested/issued/used/failed/cancelled yang benar-benar dipakai. Selesai jika kode unik, kepemilikan, pemakaian ulang, kegagalan, dan refund yang disetujui ditangani.
-- [ ] REWARD-04 | RENCANA | Implementasikan koleksi/detail voucher milik pengguna serta status hasil yang dapat diambil ulang. Selesai jika pengguna lain tidak memperoleh kode voucher privat.
+- [x] REWARD-01 | SELESAI | GET /api/v1/rewards dan detail: hanya aktif, biaya/terms/stok/available/is_demo; seed demo cmd/seed-rewards. Kontrak docs/api/rewards.md; bukti docs/test-results/rewards-2026-11-21.md.
+- [x] REWARD-02 | SELESAI | POST /api/v1/rewards/{id}/redeem: Idempotency-Key, saldo/stok/ledger/voucher satu transaksi; 8 penukaran paralel tanpa saldo/stok negatif atau potong ganda.
+- [x] REWARD-03 | SELESAI | Voucher simulasi D-20: kode unik ECO-XXXX-XXXX, issued → used (idempotent), expired dari waktu server 7 hari, tanpa refund; kegagalan tidak memotong poin.
+- [x] REWARD-04 | SELESAI | GET /api/v1/me/vouchers (cursor, filter status), detail dan tandai dipakai hanya oleh pemilik; user lain 404.
 - [ ] REWARD-05 | RENCANA | Integrasikan Android konfirmasi, sukses, saldo kurang, stok habis, retry, dan pembatalan. Selesai jika perubahan wallet sama dengan debit ledger dan bukti redemption.
 
 Tidak ada janji pencairan DANA atau nilai uang nyata. Pemenuhan voucher eksternal merupakan scope baru yang memerlukan keputusan produk dan integrasi tersendiri.
@@ -822,3 +823,7 @@ Pemilik memutuskan D-18 (QR bearer, pengklaim pertama, cukup warning) dan D-19 (
 ### Checkpoint saldo dan riwayat 2026-11-21
 
 Pemilik menyetujui WALLET-01 sebagai langkah berikut. feat/wallet-history dibuat dari cd1ba52. Tanpa migration baru. Pagination riwayat memakai cursor (bukan offset) karena ledger terus bertambah. Full suite PostgreSQL portable exit 0, 0 SKIP, termasuk TestWalletHistoryIntegration (5 skenario) dan TestWalletHTTP. Langkah berikut: REWARD-01/02/04 (katalog, penukaran atomik dengan debit ledger, koleksi voucher); REWARD-03 menunggu Q-05.
+
+### Checkpoint reward dan voucher 2026-11-21
+
+Pemilik memutuskan D-20 (pakai sederhana, 7 hari, tanpa refund). feat/reward-redemption dibuat dari 0680cb8. Migration 00008 (rewards, redemptions, point_ledger.redemption_id); enum ledger_source 00007 ditambah 'redemption' (00007 belum diterapkan ke Supabase). Riwayat poin kini menampilkan debit redemption. Full suite PostgreSQL portable exit 0, 0 SKIP, termasuk TestRewardRedemptionIntegration (8 skenario), seed CLI, dan TestRewardHTTP. Alur backend setor → poin → tukar reward lengkap. Belum: Android, Supabase/Firebase nyata.

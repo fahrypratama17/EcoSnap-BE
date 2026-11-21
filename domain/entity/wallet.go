@@ -24,6 +24,13 @@ type PointHistoryEntry struct {
 	Source    string               `json:"source"`
 	CreatedAt time.Time            `json:"created_at"`
 	Deposit   *PointHistoryDeposit `json:"deposit,omitempty"`
+	// Redemption is set for source=redemption (amount negative).
+	Redemption *PointHistoryRedemption `json:"redemption,omitempty"`
+}
+
+type PointHistoryRedemption struct {
+	ID         string `json:"id"`
+	RewardName string `json:"reward_name"`
 }
 
 // PartnerDepositSummary omits the claimer identity: a mitra sees whether its

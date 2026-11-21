@@ -23,7 +23,9 @@ CREATE TABLE public.deposit_claims (
  points BIGINT NOT NULL CHECK(points >= 0),
  claimed_at TIMESTAMPTZ NOT NULL
 );
-CREATE TYPE public.ledger_source AS ENUM ('deposit');
+-- 'redemption' is used by 00008; listed here because 00007 is not yet
+-- applied to Supabase and enum values cannot be dropped in a Down step.
+CREATE TYPE public.ledger_source AS ENUM ('deposit','redemption');
 -- Append-only. Corrections (future appeals, Q-17) add entries; they never
 -- edit or delete a credit.
 CREATE TABLE public.point_ledger (

@@ -49,8 +49,9 @@ func (r *WalletRepository) PointHistory(ctx context.Context, uid string, limit i
 		return nil, err
 	}
 	at, id := cursorArgs(after)
-	rows, err := tx.Query(ctx, `SELECT l.id::text,l.amount,l.source::text,l.created_at,d.id::text,d.partner_id::text,p.business_name,d.total_weight_grams
+	rows, err := tx.Query(ctx, `SELECT l.id::text,l.amount,l.source::text,l.created_at,d.id::text,d.partner_id::text,p.business_name,d.total_weight_grams,rd.id::text,rd.reward_name
  FROM public.point_ledger l LEFT JOIN public.deposits d ON d.id=l.deposit_id LEFT JOIN public.partners p ON p.id=d.partner_id
+ LEFT JOIN public.redemptions rd ON rd.id=l.redemption_id
  WHERE l.user_uid=$1 AND ($2::timestamptz IS NULL OR (l.created_at,l.id)<($2,$3::uuid))
  ORDER BY l.created_at DESC,l.id DESC LIMIT $4`, uid, at, id, limit)
 	if err != nil {
@@ -60,13 +61,16 @@ func (r *WalletRepository) PointHistory(ctx context.Context, uid string, limit i
 	out := []entity.PointHistoryEntry{}
 	for rows.Next() {
 		var e entity.PointHistoryEntry
-		var depositID, partnerID, partnerName *string
+		var depositID, partnerID, partnerName, redemptionID, rewardName *string
 		var grams *int64
-		if err = rows.Scan(&e.ID, &e.Amount, &e.Source, &e.CreatedAt, &depositID, &partnerID, &partnerName, &grams); err != nil {
+		if err = rows.Scan(&e.ID, &e.Amount, &e.Source, &e.CreatedAt, &depositID, &partnerID, &partnerName, &grams, &redemptionID, &rewardName); err != nil {
 			return nil, err
 		}
 		if depositID != nil {
 			e.Deposit = &entity.PointHistoryDeposit{ID: *depositID, PartnerID: *partnerID, PartnerName: *partnerName, TotalWeightKG: service.FormatWeightKG(*grams)}
+		}
+		if redemptionID != nil {
+			e.Redemption = &entity.PointHistoryRedemption{ID: *redemptionID, RewardName: *rewardName}
 		}
 		out = append(out, e)
 	}

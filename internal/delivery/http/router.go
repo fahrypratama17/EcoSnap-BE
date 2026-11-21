@@ -58,3 +58,13 @@ func RegisterWalletRoutes(mux *http.ServeMux, verifier middleware.TokenVerifier,
 	mux.Handle("GET /api/v1/me/point-history", protect(http.HandlerFunc(wallets.PointHistory)))
 	mux.Handle("GET /api/v1/partner/deposits", protect(http.HandlerFunc(wallets.PartnerDeposits)))
 }
+
+func RegisterRewardRoutes(mux *http.ServeMux, verifier middleware.TokenVerifier, rewards *handler.RewardHandler) {
+	protect := middleware.RequireAuth(verifier)
+	mux.Handle("GET /api/v1/rewards", protect(http.HandlerFunc(rewards.List)))
+	mux.Handle("GET /api/v1/rewards/{rewardID}", protect(http.HandlerFunc(rewards.Detail)))
+	mux.Handle("POST /api/v1/rewards/{rewardID}/redeem", protect(http.HandlerFunc(rewards.Redeem)))
+	mux.Handle("GET /api/v1/me/vouchers", protect(http.HandlerFunc(rewards.Vouchers)))
+	mux.Handle("GET /api/v1/me/vouchers/{voucherID}", protect(http.HandlerFunc(rewards.Voucher)))
+	mux.Handle("POST /api/v1/me/vouchers/{voucherID}/use", protect(http.HandlerFunc(rewards.UseVoucher)))
+}

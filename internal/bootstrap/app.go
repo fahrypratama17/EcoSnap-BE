@@ -28,6 +28,7 @@ func NewServer(cfg config.Config, verifier middleware.TokenVerifier, pool *pgxpo
 	httpdelivery.RegisterDepositRoutes(mux, verifier, deposits)
 	httpdelivery.RegisterDepositQRRoutes(mux, verifier, handler.NewDepositQRHandler(service.NewDepositQRService(depositRepo)))
 	httpdelivery.RegisterWalletRoutes(mux, verifier, handler.NewWalletHandler(service.NewWalletService(postgres.NewWalletRepository(pool))))
+	httpdelivery.RegisterRewardRoutes(mux, verifier, handler.NewRewardHandler(service.NewRewardService(postgres.NewRewardRepository(pool))))
 	return &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           mux,
