@@ -83,7 +83,7 @@ func (r *WalletRepository) PartnerDeposits(ctx context.Context, uid string, stat
 		return nil, err
 	}
 	defer rollbackLater(ctx, tx)
-	partner, err := authorizeMitraTx(ctx, tx, uid)
+	partner, err := partnerReaderTx(ctx, tx, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -108,4 +108,19 @@ func (r *WalletRepository) PartnerDeposits(ctx context.Context, uid string, stat
 		out = append(out, d)
 	}
 	return out, rows.Err()
+}
+
+// partnerReaderTx lets an active mitra read its own deposit history even when
+// the location is suspended (D-21 read-only); writes still need
+// authorizeMitraTx.
+func partnerReaderTx(ctx context.Context, tx pgx.Tx, uid string) (string, error) {
+	if err := favoriteAccount(ctx, tx, uid); err != nil {
+		return "", err
+	}
+	var partner string
+	err := tx.QueryRow(ctx, `SELECT p.id::text FROM public.partners p JOIN public.accounts a ON a.firebase_uid=p.mitra_uid WHERE p.mitra_uid=$1 AND a.role='mitra'`, uid).Scan(&partner)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", service.ErrDepositForbidden
+	}
+	return partner, err
 }

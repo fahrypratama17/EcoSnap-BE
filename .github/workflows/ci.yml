@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      # Disposable cluster: the integration tests create and drop their own
+      # databases and the anon/authenticated roles Supabase normally provides.
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      ECOSNAP_TEST_ADMIN_URL: postgresql://postgres@127.0.0.1:5432/postgres?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - name: vet
+        run: go vet -mod=readonly ./...
+      - name: test (fails on skipped integration tests)
+        # -p 1: integration tests share one cluster and build CLIs.
+        run: |
+          go test -p 1 -mod=readonly -count=1 -v ./... 2>&1 | tee test.log
+          test "${PIPESTATUS[0]}" -eq 0
+          if grep -q -- '--- SKIP' test.log; then grep -- '--- SKIP' test.log; exit 1; fi

@@ -154,7 +154,23 @@ func TestWalletHistoryIntegration(t *testing.T) {
 		if page, err = wallets.PartnerDeposits(ctx, "owner-b", service.HistoryQuery{Limit: 100}); err != nil || len(page.Items) != 0 {
 			t.Fatalf("owner-b sees: %d %v", len(page.Items), err)
 		}
-		for uid, want := range map[string]error{"plain-user": service.ErrDepositForbidden, "owner-pending": service.ErrDepositForbidden, "missing": service.ErrAccountNotFound} {
+		// D-21: a non-verified location may read its own (empty) history.
+		if _, err := pool.Exec(ctx, `UPDATE public.partners SET status='suspended' WHERE mitra_uid='owner-a'`); err != nil {
+			t.Fatal(err)
+		}
+		if page, err := wallets.PartnerDeposits(ctx, "owner-a", service.HistoryQuery{Limit: 100}); err != nil || len(page.Items) != 9 {
+			t.Fatalf("suspended read-only: %d %v", len(page.Items), err)
+		}
+		if _, _, err := deposits.Create(ctx, "owner-a", "wallet-key-suspended", entity.DepositCreateRequest{Items: []entity.PointEstimateInput{{CategoryID: plastic, WeightKG: "1"}}}); !errors.Is(err, service.ErrDepositForbidden) {
+			t.Fatalf("suspended create: %v", err)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE public.partners SET status='verified' WHERE mitra_uid='owner-a'`); err != nil {
+			t.Fatal(err)
+		}
+		if page, err := wallets.PartnerDeposits(ctx, "owner-pending", service.HistoryQuery{Limit: 100}); err != nil || len(page.Items) != 0 {
+			t.Fatalf("pending read: %d %v", len(page.Items), err)
+		}
+		for uid, want := range map[string]error{"plain-user": service.ErrDepositForbidden, "missing": service.ErrAccountNotFound} {
 			if _, err := wallets.PartnerDeposits(ctx, uid, service.HistoryQuery{Limit: 10}); !errors.Is(err, want) {
 				t.Fatalf("%s: %v", uid, err)
 			}

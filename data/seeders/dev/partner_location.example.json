@@ -1,0 +1,11 @@
+{
+  "business_name": "Bank Sampah Contoh",
+  "description": "Lokasi contoh untuk verify-partner approve.",
+  "area": "Lowokwaru, Malang",
+  "address": "Jl. Contoh No. 1, Malang",
+  "latitude": -7.9520,
+  "longitude": 112.6140,
+  "phone": "081200000000",
+  "opening_hours": "Senin-Sabtu, 08.00-16.00",
+  "accepted_waste": ["plastic", "paper"]
+}
