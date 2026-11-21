@@ -842,3 +842,9 @@ Pemilik meminta review edge case dulu, lalu menyetujui seluruh saran (D-22). fea
 ### Checkpoint artikel 2026-11-21
 
 Pemilik setuju konten artikel demo (D-23). feat/articles dari 3375b0e: migration 00009, endpoint daftar/detail, cmd/seed-articles (upsert demo), 5 artikel demo. Runbook Supabase diperbarui ke 00009 dan seed artikel.
+
+### Checkpoint Supabase dan Firebase nyata 2026-11-21
+
+LAPORAN pemilik (output terminal): migration 00001-00009 Applied di Supabase development (session pooler, port 5432); server dijalankan lokal terhubung ke Supabase ("Koneksi PostgreSQL berhasil"); dua akun Firebase (mitra.demo, user.demo) berhasil didaftarkan lewat POST /api/v1/accounts dengan ID token Firebase nyata, sehingga verifikasi token Firebase Admin SDK terbukti jalan untuk jalur register (AUTH-01/02: belum ada bukti revocation nyata). Seed: seed-rewards (3), seed-articles (5), seed-partners (UID mitra dzn2IlEW…, sempat gagal karena UID tertukar dengan UID user), seed-point-rates (4 versi) sukses. Catatan: Web API Key Firebase bukan rahasia; password database development sempat tertempel di chat dan sebaiknya direset setelah demo.
+
+scripts/smoke-test.ps1 ditambahkan (parse OK di PowerShell 5.1) untuk uji alur penuh dengan token nyata: estimasi, setoran, QR, preview, klaim, replay, penukaran reward, voucher, saldo, riwayat, beranda, artikel. BELUM dijalankan; hasilnya menunggu pemilik.

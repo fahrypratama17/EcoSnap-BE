@@ -75,3 +75,13 @@ go run ./cmd/verify-partner set-status --confirm --mitra-uid <UID> --status susp
 - Hapus `$env:DATABASE_URL` dari shell.
 - Catat di `BUILD_PROCESS.md` (DATA-02): tanggal, output `goose status`, dan seed yang dijalankan.
 - Mulai sekarang migration yang sudah Applied **tidak boleh diedit**; perubahan schema selalu lewat file migration baru.
+
+## 6. Smoke test dengan Firebase nyata
+
+Prasyarat: server berjalan (`go run ./cmd/app` dengan `DATABASE_URL` dan `GOOGLE_APPLICATION_CREDENTIALS`), seed sudah dijalankan, satu akun mitra (lokasi verified) dan satu akun user sudah didaftarkan lewat `POST /api/v1/accounts`.
+
+```powershell
+./scripts/smoke-test.ps1 -ApiKey <Firebase Web API Key>
+```
+
+Script meminta password kedua akun (tidak ditampilkan), lalu menjalankan estimasi → setoran → QR → klaim → penukaran reward → voucher dan memeriksa setiap hasilnya (PASS/FAIL). Tiap run membuat 2 setoran dan memakai 1 stok reward 500 poin; aman diulang karena memakai idempotency key baru dan membandingkan saldo secara relatif. Exit code 1 bila ada yang gagal.
