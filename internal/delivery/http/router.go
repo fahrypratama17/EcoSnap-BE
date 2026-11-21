@@ -86,3 +86,9 @@ func RegisterGamificationRoutes(mux *http.ServeMux, verifier middleware.TokenVer
 	mux.Handle("GET /api/v1/leaderboard", protect(http.HandlerFunc(gamification.Leaderboard)))
 	mux.Handle("PATCH /api/v1/me/leaderboard-visibility", protect(http.HandlerFunc(gamification.SetLeaderboardVisibility)))
 }
+
+func RegisterSettingsRoutes(mux *http.ServeMux, verifier middleware.TokenVerifier, settings *handler.SettingsHandler) {
+	protect := middleware.RequireAuth(verifier)
+	mux.Handle("GET /api/v1/me/settings", protect(http.HandlerFunc(settings.Get)))
+	mux.Handle("PATCH /api/v1/me/settings", protect(http.HandlerFunc(settings.Update)))
+}

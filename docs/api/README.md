@@ -2,7 +2,7 @@
 
 Mulai dari sini. Dokumen per fitur dirujuk di bagian 4; dokumen ini memuat hal yang berlaku di semua endpoint, urutan pemanggilan per layar, dan katalog error.
 
-**Status:** 36 route tercatat di router; tes PostgreSQL/HTTP terarah untuk gamifikasi lulus ([bukti](../test-results/gamification-2026-11-21.md)). Pemilik melaporkan migration 00001–00010 Applied dan smoke test terbaru **57 lulus, 0 gagal** dengan Firebase nyata dan Supabase development, termasuk misi, XP, badge, leaderboard, serta pemulihan privasi. Integrasi Android belum diuji. Jika respons berbeda dari dokumen, laporkan beserta request tanpa token/credential.
+**Status:** 38 route tercatat di router; tes PostgreSQL/HTTP terarah untuk gamifikasi lulus ([bukti](../test-results/gamification-2026-11-21.md)). Pemilik melaporkan migration 00001–00010 Applied dan smoke test terbaru **57 lulus, 0 gagal** dengan Firebase nyata dan Supabase development, termasuk misi, XP, badge, leaderboard, serta pemulihan privasi. Dua route `/me/settings` ditambahkan sesudahnya dan belum diverifikasi. Integrasi Android belum diuji. Jika respons berbeda dari dokumen, laporkan beserta request tanpa token/credential.
 
 ## 1. Alamat server
 
@@ -57,6 +57,7 @@ Semua memerlukan Bearer token kecuali `/health`. Kolom "Siapa": **user**, **mitr
 | `GET /api/v1/auth/me` | semua | [android-integration.md](android-integration.md) |
 | `POST /api/v1/accounts` | semua (sekali) | [accounts.md](accounts.md) |
 | `GET /api/v1/me` · `PATCH /api/v1/me` | semua | [accounts.md](accounts.md) |
+| `GET /api/v1/me/settings` · `PATCH /api/v1/me/settings` | semua (active) | [accounts.md](accounts.md) |
 | `GET /api/v1/waste-categories` | semua | [partners.md](partners.md) |
 | `GET /api/v1/partners` · `GET /api/v1/partners/{id}` | semua | [partners.md](partners.md) |
 | `GET /api/v1/me/favorites` · `PUT/DELETE /api/v1/me/favorites/{partnerID}` | semua | [partner-favorites.md](partner-favorites.md) |
@@ -79,6 +80,9 @@ Semua memerlukan Bearer token kecuali `/health`. Kolom "Siapa": **user**, **mitr
 3. Setiap kali aplikasi dibuka: `GET /api/v1/me` untuk memuat profil. **404 `account_not_found`** berarti Firebase sudah ada tetapi profil belum dibuat → ulangi langkah 2.
 4. Mitra baru berstatus **pending**: `GET /me` menampilkan `business.status = "pending"`, belum punya lokasi, dan **tidak bisa membuat setoran/QR**. Persetujuan dilakukan manual oleh pemilik repo (D-21). Tampilkan banner "menunggu verifikasi".
 5. Mitra yang sudah punya lokasi tetapi disuspend: `GET /partner/home` menampilkan `partner_status` (`verified` | `suspended` | `rejected` | `pending`). Riwayat tetap terbaca; pembuatan setoran dan QR ditolak 403.
+
+### Pengaturan akun
+`GET /api/v1/me/settings` memuat `notification_enabled`, `show_on_leaderboard`, `onboarding_completed`. `PATCH /api/v1/me/settings` menerima hanya `notification_enabled` dan/atau `onboarding_completed` (boolean; dihilangkan = tidak berubah; `false` sah; null/kosong/asing/query ditolak dengan 400 `invalid_request`). Visibilitas leaderboard tetap diubah lewat `PATCH /me/leaderboard-visibility` (hanya user). Preferensi notifikasi hanya disimpan, belum ada pengiriman. Belum diuji dari Android.
 
 ### Beranda
 - User: `GET /api/v1/me/home` (saldo, jumlah klaim, total berat, voucher aktif, 3 aktivitas terbaru).

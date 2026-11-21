@@ -110,3 +110,44 @@ Wallet, settings, role, email, dan detail usaha tidak di-update. Jika profil sud
 Source tambahan: account_profile_update.go pada service, repository/postgres, dan delivery/http/handler. AccountStore diperluas dengan UpdateProfile; router memakai middleware auth yang sama. Tidak ada migration baru atau perubahan Android.
 
 Verifikasi 2026-11-20: baseline seluruh suite PASS terlebih dahulu. Tes HTTP baru gagal karena PATCH belum terpasang, kemudian lolos setelah implementasi. Full suite sesudah perubahan juga PASS pada PostgreSQL portable nyata tanpa SKIP. TestAccountProfileUpdateIntegration menguji update sebagian, retry, Unicode, dua update paralel pada field berbeda, wallet tetap 250, profil user lain utuh, missing/suspended ditolak dan data tidak berubah setelah penolakan. HTTP menguji field terlarang/null/empty/tipe salah/limit body/auth/content type. Bukti: docs/test-results/profile-update-2026-11-20.md.
+
+## GET/PATCH /api/v1/me/settings (2026-11-21)
+
+Status: ADA KODE pada branch lokal; tes PostgreSQL nyata dan HTTP terarah lulus tanpa SKIP. Supabase/Firebase nyata untuk endpoint settings dan Android belum diuji. Pengaturan akun milik caller, diambil dari UID token. User dan mitra berstatus active dapat memakainya. Memakai tabel `user_settings` yang sudah ada; tidak ada migration baru.
+
+Response 200 (GET dan PATCH) hanya memuat tiga boolean:
+
+```json
+{"data":{"notification_enabled":true,"show_on_leaderboard":true,"onboarding_completed":false}}
+```
+
+PATCH membutuhkan `Content-Type: application/json`, body maksimal 16 KiB, satu objek JSON. Hanya `notification_enabled` dan `onboarding_completed` yang dapat dikirim; keduanya opsional boolean, tetapi minimal salah satu wajib ada. Field yang dihilangkan tidak berubah; `false` adalah nilai sah. Ditolak dengan 400 `invalid_request`: parameter query apa pun (termasuk query malformed), body kosong, `{}`, `null`, nilai bukan boolean, field tidak dikenal (termasuk `show_on_leaderboard`), dan teks tambahan setelah objek JSON.
+
+```json
+{"notification_enabled":false}
+```
+
+```json
+{"onboarding_completed":true}
+```
+
+- `show_on_leaderboard` hanya dapat dibaca di sini. Satu-satunya penulis tetap `PATCH /api/v1/me/leaderboard-visibility` (user active saja); lihat [gamification.md](gamification.md).
+- `notification_enabled` hanya menyimpan preferensi. Belum ada mesin pengiriman notifikasi dan tidak ada push (Q-10 tetap terbuka).
+- `onboarding_completed` boleh dikirim `false` maupun `true` dan idempotent. Backend tidak memakainya untuk menggerbang akses; keputusan Q-12 lain tidak dibuat.
+- Tidak ada perubahan Android.
+
+| Status | Code | Kondisi |
+|---|---|---|
+| 400 | invalid_request | Query, body kosong/`{}`/`null`, bukan boolean, field asing, JSON tambahan |
+| 401 | unauthorized | Token hilang atau ditolak |
+| 403 | account_forbidden | Akun bukan active |
+| 404 | account_not_found | Akun atau baris settings tidak ada (tidak ada nilai bawaan yang dibuat) |
+| 413 | body_too_large | Body melebihi 16 KiB |
+| 415 | unsupported_media_type | Content-Type bukan application/json |
+| 504 | request_timeout | Batas operasi terlampaui |
+| 500 | internal_error | Kegagalan internal |
+
+Konstruksi produksi: `service.NewSettingsService(store service.SettingsStore)` dengan `SettingsStore{Settings(ctx, uid) (SettingsSnapshot, error); UpdateSettings(ctx, uid, AccountSettingsUpdate) (entity.AccountSettings, error)}`; `postgres.NewSettingsRepository(pool)`; `handler.NewSettingsHandler(svc)` (Get/Update); route didaftarkan oleh `httpdelivery.RegisterSettingsRoutes`. Error service `ErrInvalidSettingsUpdate` dipetakan ke 400 `invalid_request`.
+
+Verifikasi: `go test -p 1 -mod=readonly -count=1 -v ./internal/repository/postgres ./internal/delivery/http ./internal/service -run 'Test.*Settings'` pada PostgreSQL lokal disposable menghasilkan exit 0, tanpa SKIP. TestSettingsRepositoryIntegration (8 skenario) membuktikan kedua role, nilai false, persistensi yang terlihat lewat profil, isolasi akun, privasi leaderboard tetap utuh, update paralel field berbeda, penolakan suspended/deleted, dan missing settings tanpa membuat default. Enam tes HTTP membuktikan auth, batas body/content type, query/field/null/tipe salah, PATCH parsial dan UID dari token. Paket service dikompilasi tetapi tidak memiliki tes yang cocok dengan filter ini. Tidak menjalankan ulang full suite; smoke 57 PASS sebelumnya belum mencakup settings.
+
