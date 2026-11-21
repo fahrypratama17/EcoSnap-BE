@@ -19,6 +19,12 @@
   Use a dedicated user account and do not run concurrent smoke tests for it;
   weekly progress, badges, and mission claims are account-wide.
 
+  Settings checks (GET/PATCH /api/v1/me/settings) run right after login and
+  profile GET, before any deposit/seed/reward/gamification step, for both the
+  mitra and user accounts. Only notification_enabled and onboarding_completed
+  are mutated; both are restored in a finally block and verified. Use
+  -SettingsOnly to run just those checks and exit.
+
 .EXAMPLE
   ./scripts/smoke-test.ps1 -ApiKey AIzaSy...
 #>
@@ -26,7 +32,8 @@ param(
     [Parameter(Mandatory = $true)][string]$ApiKey,
     [string]$BaseUrl = "http://127.0.0.1:8080",
     [string]$MitraEmail = "mitra.demo@ecosnap.test",
-    [string]$UserEmail = "user.demo@ecosnap.test"
+    [string]$UserEmail = "user.demo@ecosnap.test",
+    [switch]$SettingsOnly
 )
 $ErrorActionPreference = "Stop"
 $script:failed = 0
@@ -90,6 +97,118 @@ function Describe($r) {
 }
 function Step($title) { Write-Host ""; Write-Host $title -ForegroundColor Cyan }
 
+# --- Account settings checks -------------------------------------------------
+# Settings endpoint payload is exactly data; /me embeds settings separately.
+function Get-SettingsFields($r) {
+    if ($r.Json) { return $r.Json.data }
+    $null
+}
+function Test-SettingsShape($s) {
+    $null -ne $s -and $s.notification_enabled -is [bool] -and $s.onboarding_completed -is [bool] -and $s.show_on_leaderboard -is [bool]
+}
+function Test-SettingsEqual($a, $b) {
+    $null -ne $a -and $null -ne $b -and
+    $a.notification_enabled -eq $b.notification_enabled -and
+    $a.onboarding_completed -eq $b.onboarding_completed -and
+    $a.show_on_leaderboard -eq $b.show_on_leaderboard
+}
+function Format-Settings($s) {
+    if ($null -eq $s) { return "<none>" }
+    "notification_enabled=" + $s.notification_enabled + " onboarding_completed=" + $s.onboarding_completed + " show_on_leaderboard=" + $s.show_on_leaderboard
+}
+function Get-WalletSnapshot($token) {
+    $w = Call GET "/api/v1/me/wallet" $token
+    if ($w.Status -ne 200 -or -not $w.Json.data) { throw ("Wallet snapshot unavailable: " + (Describe $w)) }
+    "balance=" + $w.Json.data.balance + " total_earned=" + $w.Json.data.total_earned + " total_spent=" + $w.Json.data.total_spent
+}
+# Fails fast (before any mutation) when the settings route is missing or
+# returns something other than 3 booleans. Returns the baseline settings.
+function Assert-SettingsRoute($label, $token) {
+    $r = Call GET "/api/v1/me/settings" $token
+    $s = Get-SettingsFields $r
+    if ($r.Status -ne 200 -or -not (Test-SettingsShape $s)) {
+        Write-Host ("GET /api/v1/me/settings ($label) unavailable or malformed: " + (Describe $r) + "; aborting before any mutation. Deploy the settings route and restart the server.") -ForegroundColor Red
+        exit 1
+    }
+    $s
+}
+# Runs all settings checks for one account. $otherToken is the other account,
+# whose settings and the own wallet must stay untouched. $original is the
+# baseline from Assert-SettingsRoute. The two mutable prefs are restored in
+# finally and verified through GET and /me.
+function Test-AccountSettings($label, $token, $otherToken, $original) {
+    $path = "/api/v1/me/settings"
+    $origN = [bool]$original.notification_enabled
+    $origO = [bool]$original.onboarding_completed
+    $origV = [bool]$original.show_on_leaderboard
+    $otherBefore = Get-SettingsFields (Call GET $path $otherToken)
+    $walletBefore = Get-WalletSnapshot $token
+    try {
+        $get = Call GET $path $token
+        Check "[$label] GET settings: 200 with 3 booleans" ($get.Status -eq 200 -and (Test-SettingsShape (Get-SettingsFields $get))) (Describe $get)
+        $meBase = Call GET "/api/v1/me" $token
+        Check "[$label] /me settings match GET settings" ($meBase.Status -eq 200 -and (Test-SettingsEqual $meBase.Json.data.settings $original)) ((Describe $meBase) + " " + (Format-Settings $meBase.Json.data.settings))
+
+        # notification toggle, partial body
+        $newN = -not $origN
+        $p1 = Call PATCH $path $token @{ notification_enabled = $newN }
+        $s1 = Get-SettingsFields $p1
+        Check "[$label] PATCH notification_enabled toggles it, keeps onboarding/leaderboard" ($p1.Status -eq 200 -and $s1.notification_enabled -eq $newN -and $s1.onboarding_completed -eq $origO -and $s1.show_on_leaderboard -eq $origV) ((Describe $p1) + " " + (Format-Settings $s1))
+        $p1b = Call PATCH $path $token @{ notification_enabled = $newN }
+        $s1b = Get-SettingsFields $p1b
+        Check "[$label] repeating the same PATCH is idempotent" ($p1b.Status -eq 200 -and (Test-SettingsEqual $s1b $s1)) ((Describe $p1b) + " " + (Format-Settings $s1b))
+
+        # onboarding toggle, partial body
+        $newO = -not $origO
+        $p2 = Call PATCH $path $token @{ onboarding_completed = $newO }
+        $s2 = Get-SettingsFields $p2
+        Check "[$label] PATCH onboarding_completed toggles it, keeps notification/leaderboard" ($p2.Status -eq 200 -and $s2.onboarding_completed -eq $newO -and $s2.notification_enabled -eq $newN -and $s2.show_on_leaderboard -eq $origV) ((Describe $p2) + " " + (Format-Settings $s2))
+
+        # persistence via GET and profile
+        $g2 = Call GET $path $token
+        Check "[$label] GET settings reflects both changes" ($g2.Status -eq 200 -and (Test-SettingsEqual (Get-SettingsFields $g2) $s2)) ((Describe $g2) + " " + (Format-Settings (Get-SettingsFields $g2)))
+        $m2 = Call GET "/api/v1/me" $token
+        Check "[$label] /me profile reflects both changes" ($m2.Status -eq 200 -and (Test-SettingsEqual $m2.Json.data.settings $s2)) ((Describe $m2) + " " + (Format-Settings $m2.Json.data.settings))
+
+        # invalid bodies: 400 and no state change
+        $invalid = [ordered]@{
+            "null notification_enabled"   = @{ notification_enabled = $null }
+            "null onboarding_completed"   = @{ onboarding_completed = $null }
+            "empty body"                  = @{}
+            "uid field"                   = @{ uid = "someone-else" }
+            "read-only show_on_leaderboard" = @{ show_on_leaderboard = (-not $origV) }
+            "show_on_leaderboard with valid field" = @{ notification_enabled = $origN; show_on_leaderboard = (-not $origV) }
+        }
+        foreach ($name in $invalid.Keys) {
+            $bad = Call PATCH $path $token $invalid[$name]
+            Check "[$label] PATCH $name rejected (400)" ($bad.Status -eq 400) (Describe $bad)
+        }
+        $g3 = Call GET $path $token
+        Check "[$label] rejected requests changed nothing" ($g3.Status -eq 200 -and (Test-SettingsEqual (Get-SettingsFields $g3) $s2)) ((Describe $g3) + " " + (Format-Settings (Get-SettingsFields $g3)))
+
+        # authentication
+        $na1 = Call GET $path "token-palsu"
+        Check "[$label] GET settings with invalid token (401)" ($na1.Status -eq 401) (Describe $na1)
+        $na2 = Call PATCH $path "token-palsu" @{ notification_enabled = $origN }
+        Check "[$label] PATCH settings with invalid token (401)" ($na2.Status -eq 401) (Describe $na2)
+
+        # isolation
+        $otherAfter = Get-SettingsFields (Call GET $path $otherToken)
+        Check "[$label] other account's settings unaffected" (Test-SettingsEqual $otherBefore $otherAfter) ((Format-Settings $otherBefore) + " -> " + (Format-Settings $otherAfter))
+        $walletAfter = Get-WalletSnapshot $token
+        Check "[$label] wallet unaffected by settings changes" ($walletBefore -eq $walletAfter) ($walletBefore + " -> " + $walletAfter)
+    }
+    finally {
+        $rest = Call PATCH $path $token @{ notification_enabled = $origN; onboarding_completed = $origO }
+        Check "[$label] restore notification_enabled/onboarding_completed (PATCH)" ($rest.Status -eq 200) (Describe $rest)
+        $gr = Call GET $path $token
+        Check "[$label] GET settings equals original after restore" ($gr.Status -eq 200 -and (Test-SettingsEqual (Get-SettingsFields $gr) $original)) ((Describe $gr) + " " + (Format-Settings (Get-SettingsFields $gr)))
+        $mr = Call GET "/api/v1/me" $token
+        Check "[$label] /me settings equal original after restore" ($mr.Status -eq 200 -and (Test-SettingsEqual $mr.Json.data.settings $original)) ((Describe $mr) + " " + (Format-Settings $mr.Json.data.settings))
+    }
+}
+
+
 $run = [guid]::NewGuid().ToString("N")
 
 Step "0. Server dan login"
@@ -104,11 +223,27 @@ $ut = $user.idToken
 Step "1. Akun dan data demo"
 $me = Call GET "/api/v1/me" $mt
 Check "mitra terdaftar dengan role mitra" ($me.Status -eq 200 -and $me.Json.data.role -eq "mitra") (Describe $me)
+$mitraProfile = $me.Json.data
 $me = Call GET "/api/v1/me" $ut
 Check "user terdaftar dengan role user" ($me.Status -eq 200 -and $me.Json.data.role -eq "user") (Describe $me)
 $userProfile = $me.Json.data
 $originalVisibility = $userProfile.settings.show_on_leaderboard
 if ($originalVisibility -isnot [bool]) { Write-Host "Profile is missing a boolean settings.show_on_leaderboard; aborting before deposits." -ForegroundColor Red; exit 1 }
+
+Step "1b. Pengaturan akun (settings)"
+$mitraSettings0 = Assert-SettingsRoute "mitra" $mt
+$userSettings0 = Assert-SettingsRoute "user" $ut
+Check "profile settings sama dengan GET settings (mitra dan user)" ((Test-SettingsEqual $mitraProfile.settings $mitraSettings0) -and (Test-SettingsEqual $userProfile.settings $userSettings0)) ("mitra: " + (Format-Settings $mitraProfile.settings) + "; user: " + (Format-Settings $userProfile.settings))
+Test-AccountSettings "mitra" $mt $ut $mitraSettings0
+Test-AccountSettings "user" $ut $mt $userSettings0
+$afterSettings = Call GET "/api/v1/me/settings" $ut
+Check "original leaderboard visibility unaffected by settings checks" ($afterSettings.Status -eq 200 -and (Get-SettingsFields $afterSettings).show_on_leaderboard -eq $originalVisibility) (Describe $afterSettings)
+if ($SettingsOnly) {
+    Write-Host ""
+    Write-Host ("Settings-only: " + $script:passed + " lulus, " + $script:failed + " gagal") -ForegroundColor $(if ($script:failed -eq 0) { "Green" } else { "Red" })
+    if ($script:failed -gt 0) { exit 1 }
+    exit 0
+}
 $cats = Call GET "/api/v1/waste-categories" $ut
 $plastic = ($cats.Json.data | Where-Object { $_.slug -eq "plastic" }).id
 $paper = ($cats.Json.data | Where-Object { $_.slug -eq "paper" }).id
