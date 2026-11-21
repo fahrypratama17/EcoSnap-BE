@@ -1,5 +1,7 @@
 # Integrasi backend dan Android EcoSnap
 
+> **Catatan:** dokumen ini adalah **riwayat audit frontend (17 November 2026)** dan kontrak dua route awal. Isinya tidak diperbarui untuk fitur setelahnya. Panduan integrasi terkini (konvensi, alur per layar, katalog error, peta seluruh endpoint) ada di [README.md](README.md).
+
 Audit kode lokal: 17 November 2026. Backend: EcoSnap-BE. Android: direktori EcoSnap-FE di samping repository backend. Dokumen ini mencatat kontrak yang sudah tersedia, kondisi frontend, dan urutan pekerjaan berikutnya. Status implementasi keseluruhan tetap dicatat di [BUILD_PROCESS.md](../../BUILD_PROCESS.md).
 
 Requirement dan keputusan diperbarui melalui [audit mendalam](../FRONTEND_BACKEND_AUDIT.md). Dokumen ini mempertahankan kontrak dua route yang sudah tersedia. Tahap audit telah dilanjutkan ke implementasi akun atas permintaan pemilik; lihat accounts.md dan pembaruan pada akhir dokumen. Mitra demo memakai seed, akun baru pending tanpa izin QR, dan keputusan terakhir satu akun mengelola satu tempat. Bagian rencana di bawah dibaca bersama keputusan terbaru tersebut.
