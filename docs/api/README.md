@@ -2,7 +2,7 @@
 
 Mulai dari sini. Dokumen per fitur dirujuk di bagian 4; dokumen ini memuat hal yang berlaku di semua endpoint, urutan pemanggilan per layar, dan katalog error.
 
-**Status:** 31 route tersedia dan diuji. Backend jalan terhadap Supabase development dengan token Firebase nyata; `scripts/smoke-test.ps1` (36 pemeriksaan: setoran → QR → klaim → reward → voucher → riwayat) lulus semua. **Belum diuji dari aplikasi Android.** Jika respons berbeda dari dokumen, anggap itu bug backend dan laporkan beserta request-nya.
+**Status:** 36 route tercatat di router; 5 route gamifikasi baru belum dibuktikan lewat tes runtime, Supabase, atau Android. Bukti historis smoke test (`scripts/smoke-test.ps1`: 36 pemeriksaan alur setoran → QR → klaim → reward → voucher → riwayat) lulus untuk cakupan sebelum gamifikasi; hasil itu tidak mencakup route gamifikasi. Backend sebelumnya diuji terhadap Supabase development dengan token Firebase nyata. Jika respons berbeda dari dokumen, anggap itu bug backend dan laporkan beserta request-nya.
 
 ## 1. Alamat server
 
@@ -69,6 +69,7 @@ Semua memerlukan Bearer token kecuali `/health`. Kolom "Siapa": **user**, **mitr
 | `GET /api/v1/rewards` · `/rewards/{id}` · `POST /rewards/{id}/redeem` | user (redeem) | [rewards.md](rewards.md) |
 | `GET /api/v1/me/vouchers` · `/me/vouchers/{id}` · `POST /me/vouchers/{id}/use` | user | [rewards.md](rewards.md) |
 | `GET /api/v1/articles` · `/articles/{id}` | semua | [articles.md](articles.md) |
+| `GET /api/v1/me/missions` · `POST /api/v1/me/missions/{missionID}/claim` · `GET /api/v1/me/badges` · `GET /api/v1/leaderboard` · `PATCH /api/v1/me/leaderboard-visibility` | user (klaim/visibility: user) | [gamification.md](gamification.md) |
 
 ## 5. Alur per layar
 
@@ -82,7 +83,7 @@ Semua memerlukan Bearer token kecuali `/health`. Kolom "Siapa": **user**, **mitr
 ### Beranda
 - User: `GET /api/v1/me/home` (saldo, jumlah klaim, total berat, voucher aktif, 3 aktivitas terbaru).
 - Mitra: `GET /api/v1/partner/home`.
-- Angka all-time. Misi dan badge belum ada.
+- Angka all-time. Misi dan badge ada di layar tersendiri (lihat "Misi, badge, dan leaderboard"); `/me/home` belum memuatnya.
 
 ### Peta dan daftar mitra
 `GET /api/v1/partners?q=&material=<slug>&limit=&offset=` dan detail per ID. Pencarian berdasarkan nama/area; belum ada radius/GPS (urutan jarak dihitung di Android jika perlu).
@@ -119,6 +120,13 @@ Semua memerlukan Bearer token kecuali `/health`. Kolom "Siapa": **user**, **mitr
 3. Voucher berlaku **7 hari**; kedaluwarsa dan terpakai tidak dikembalikan poinnya (tanpa refund, D-20). Status `expired` dihitung server saat dibaca.
 4. `GET /api/v1/me/vouchers?status=issued|used|expired` dan `POST /me/vouchers/{id}/use` untuk "tandai sudah dipakai".
 5. Voucher bersifat simulasi; tidak ada pencairan nyata.
+
+### Misi, badge, dan leaderboard
+Kode backend ada ([gamification.md](gamification.md)) tetapi migration 00010 belum diterapkan ke Supabase dan belum diuji dari Android.
+1. `GET /api/v1/me/missions`: progres minggu ini (Senin 00.00 WIB, akhir eksklusif). Tampilkan `period_end` sebagai tanggal berakhir dan hitung sisa waktu dari `server_time`.
+2. Saat `status = "claimable"`, kirim `POST /api/v1/me/missions/{missionID}/claim` dengan JSON `{"period_start":"…"}` dari response GET. 201 = klaim pertama; 200 = retry periode sama; periode lama/masa depan mendapat 410 `mission_expired`. Retry selalu memakai token periode yang sama.
+3. `GET /api/v1/me/badges`: badge permanen, otomatis, tanpa klaim.
+4. `GET /api/v1/leaderboard?limit=20`: XP mingguan; tampilkan `me` bila tidak `null`. `PATCH /api/v1/me/leaderboard-visibility` mengatur keikutsertaan (visible true/false). XP bukan EcoPoints dan tidak menambah saldo.
 
 ### Artikel
 `GET /api/v1/articles?q=&category=&featured=true` dan detail. Isi berupa **teks biasa** (bukan HTML/Markdown): tampilkan sebagai teks. "Selesai membaca" belum dicatat server.
@@ -164,10 +172,10 @@ Aturan retry: 5xx/504/jaringan putus → ulangi dengan **key/token yang sama** (
 
 ## 7. Belum tersedia
 
-Tidak ada endpoint untuk: scan/foto sampah (menunggu model AI, Q-06), game, misi, badge, leaderboard (Q-07), notifikasi, laporan PDF, upload foto profil, bantuan/laporan masalah, dan persetujuan mitra dari aplikasi (dilakukan lewat CLI oleh pemilik, D-21). Layar yang membutuhkannya tetap memakai data lokal atau placeholder sampai kontraknya ada. Data tarif, reward, dan artikel saat ini adalah **data demo** (`is_demo: true`).
+Tidak ada endpoint untuk: scan/foto sampah (menunggu model AI, Q-06), game dan misi game (ditunda, D-24), notifikasi, laporan PDF, upload foto profil, bantuan/laporan masalah, dan persetujuan mitra dari aplikasi (dilakukan lewat CLI oleh pemilik, D-21). Endpoint misi, badge, dan leaderboard sudah ada di kode tetapi belum dibuktikan pada Supabase maupun Android. Layar yang membutuhkan fitur yang belum ada tetap memakai data lokal atau placeholder sampai kontraknya ada. Data tarif, reward, dan artikel saat ini adalah **data demo** (`is_demo: true`).
 
 ## 8. Menjalankan dan menguji backend
 
 Kontrak di atas bisa dicoba tanpa Android: ikuti [Runbook Supabase](../supabase-migration-runbook.md) lalu jalankan `./scripts/smoke-test.ps1 -ApiKey <Firebase Web API Key>`. Akun uji: `mitra.demo@ecosnap.test` dan `user.demo@ecosnap.test` (password dipegang pemilik repo).
 
-Tes otomatis backend (`./scripts/test-postgres-portable.ps1`, atau `go test ./...` dengan `ECOSNAP_TEST_ADMIN_URL`) menjalankan 108 tes terhadap PostgreSQL lokal. Riwayat keputusan dan status per task ada di [BUILD_PROCESS.md](../../BUILD_PROCESS.md).
+Tes otomatis backend dijalankan terhadap PostgreSQL lokal lewat `./scripts/test-postgres-portable.ps1` (atau `go test ./...` dengan `ECOSNAP_TEST_ADMIN_URL`); jumlah tes belum diperbarui untuk gamifikasi. Riwayat keputusan dan status per task ada di [BUILD_PROCESS.md](../../BUILD_PROCESS.md).

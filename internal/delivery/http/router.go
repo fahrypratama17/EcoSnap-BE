@@ -77,3 +77,12 @@ func RegisterArticleRoutes(mux *http.ServeMux, verifier middleware.TokenVerifier
 	mux.Handle("GET /api/v1/articles", protect(http.HandlerFunc(articles.List)))
 	mux.Handle("GET /api/v1/articles/{articleID}", protect(http.HandlerFunc(articles.Detail)))
 }
+
+func RegisterGamificationRoutes(mux *http.ServeMux, verifier middleware.TokenVerifier, gamification *handler.GamificationHandler) {
+	protect := middleware.RequireAuth(verifier)
+	mux.Handle("GET /api/v1/me/missions", protect(http.HandlerFunc(gamification.Missions)))
+	mux.Handle("POST /api/v1/me/missions/{missionID}/claim", protect(http.HandlerFunc(gamification.ClaimMission)))
+	mux.Handle("GET /api/v1/me/badges", protect(http.HandlerFunc(gamification.Badges)))
+	mux.Handle("GET /api/v1/leaderboard", protect(http.HandlerFunc(gamification.Leaderboard)))
+	mux.Handle("PATCH /api/v1/me/leaderboard-visibility", protect(http.HandlerFunc(gamification.SetLeaderboardVisibility)))
+}

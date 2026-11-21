@@ -30,6 +30,8 @@ func NewServer(cfg config.Config, verifier middleware.TokenVerifier, pool *pgxpo
 	httpdelivery.RegisterWalletRoutes(mux, verifier, handler.NewWalletHandler(service.NewWalletService(postgres.NewWalletRepository(pool))))
 	httpdelivery.RegisterRewardRoutes(mux, verifier, handler.NewRewardHandler(service.NewRewardService(postgres.NewRewardRepository(pool))))
 	httpdelivery.RegisterArticleRoutes(mux, verifier, handler.NewArticleHandler(service.NewArticleService(postgres.NewArticleRepository(pool))))
+	gamification := handler.NewGamificationHandler(service.NewGamificationService(postgres.NewGamificationRepository(pool)))
+	httpdelivery.RegisterGamificationRoutes(mux, verifier, gamification)
 	return &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           mux,

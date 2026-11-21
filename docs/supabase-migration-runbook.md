@@ -1,6 +1,6 @@
 # Runbook: migration dan data demo ke Supabase development
 
-Dijalankan oleh pemilik repo. AI tidak membaca credential dan tidak mengeksekusi ke Supabase. Kondisi awal (laporan pemilik 2026-11-21): hanya `00001_create_accounts.sql` yang sudah diterapkan.
+Dijalankan oleh pemilik repo. AI tidak membaca credential dan tidak mengeksekusi ke Supabase. Kondisi terakhir yang dilaporkan pemilik (2026-11-21): migration `00001`–`00009` diterapkan; migration `00010_create_gamification.sql` **belum diterapkan**.
 
 ## 0. Sebelum mulai
 
@@ -21,10 +21,10 @@ $env:DATABASE_URL = "postgresql://postgres:<password>@<host>:5432/postgres?sslmo
 goose -dir database/migrations postgres $env:DATABASE_URL status
 ```
 
-Yang diharapkan: `00001` **Applied**, `00002`–`00009` **Pending**.
+Yang diharapkan berdasarkan kondisi terakhir yang dilaporkan: `00001`–`00009` **Applied**, `00010` **Pending**. `00010_create_gamification.sql` menambah tabel `mission_claims` dan trigger immutable pada `mission_claims` dan `deposit_claims`; statusnya belum diverifikasi ulang di Supabase.
 
 **Berhenti** dan laporkan ke AI jika:
-- `00006` atau `00007` tercatat Applied. Isi kedua file sudah diubah setelah dibuat, jadi versi di database bisa berbeda.
+- `00006` atau `00007` tercatat Applied tetapi skema remote tidak sesuai laporan kondisi terakhir. Isi kedua file sudah diubah setelah dibuat, jadi versi di database bisa berbeda.
 - Tabel `goose_db_version` tidak ada padahal tabel `accounts` ada (00001 dulu diterapkan manual). Perlu baseline dulu, jangan langsung `up`.
 
 ## 2. Terapkan migration
@@ -34,7 +34,7 @@ goose -dir database/migrations postgres $env:DATABASE_URL up
 goose -dir database/migrations postgres $env:DATABASE_URL status
 ```
 
-Semua `00001`–`00009` harus Applied. Setiap file berjalan dalam transaksinya sendiri; jika satu gagal, file itu tidak setengah jadi, catat pesan error-nya.
+Semua `00001`–`00010` harus Applied. Setiap file berjalan dalam transaksinya sendiri; jika satu gagal, file itu tidak setengah jadi, catat pesan error-nya.
 
 Pemeriksaan cepat di SQL editor Supabase:
 
