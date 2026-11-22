@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -58,6 +59,12 @@ func requireAuth(verify func(context.Context, string) (*auth.Token, error)) func
 			}
 
 			tokenStatus, err := verify(r.Context(), parts[1])
+			if err != nil && errors.Is(r.Context().Err(), context.DeadlineExceeded) {
+				// The whole-request deadline expired while Firebase was being
+				// consulted: that is a server-side timeout, not a bad token.
+				response.Error(w, http.StatusGatewayTimeout, "request_timeout", "Permintaan melebihi batas waktu.")
+				return
+			}
 			if err != nil || tokenStatus == nil || tokenStatus.UID == "" {
 				w.Header().Set("WWW-Authenticate", "Bearer")
 				response.Error(w, http.StatusUnauthorized, "unauthorized", "ID token Firebase tidak valid atau sudah kedaluwarsa.")

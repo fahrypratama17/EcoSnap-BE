@@ -38,8 +38,11 @@ func NewServer(cfg config.Config, verifier middleware.TokenVerifier, pool *pgxpo
 	httpdelivery.RegisterSupportRoutes(mux, verifier, handler.NewSupportHandler(service.NewSupportService(postgres.NewSupportRepository(pool))))
 	return &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           mux,
+		Handler:           httpdelivery.NewHandler(mux),
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		MaxHeaderBytes:    16 * 1024,
 		IdleTimeout:       60 * time.Second,
 	}
 }
