@@ -104,7 +104,7 @@ Restart backend dari terminal yang sudah memiliki `DATABASE_URL` dan `GOOGLE_APP
 
 Masukkan password kedua akun melalui prompt tersembunyi. Mode ini menguji pengaturan user/mitra, PATCH parsial/retry, nilai boolean, isolasi akun, konsistensi dengan profil dan wallet, serta pemulihan nilai semula. Tidak membuat setoran, mengklaim XP, atau memakai stok reward. Gunakan akun demo tanpa aktivitas bersamaan. Jika pemulihan gagal akibat jaringan/server, periksa nilai lewat GET /api/v1/me/settings dan kembalikan sesuai baseline yang dicatat sebelum tes.
 
-Jangan kirim password/token ke chat. Kirim hanya baris PASS/FAIL dan ringkasan hasil. Push fitur settings menunggu hasil tes nyata; laporan 57 PASS sebelumnya tidak mencakup endpoint settings.
+Jangan kirim password/token ke chat. Kirim hanya baris PASS/FAIL dan ringkasan hasil. Aturan lama menahan push sampai smoke nyata diubah pemilik saat meminta publikasi progress; kode settings kini sudah dipublikasikan, tetapi laporan 57 PASS sebelumnya tetap tidak mencakup endpoint settings.
 
 ## 8. Laporan, bantuan, dan notifikasi
 

@@ -1,3 +1,8 @@
+// Historical product-design schema, not the deployed PostgreSQL schema.
+// Includes deferred AI/game/media/admin concepts and legacy column names.
+// Executable source of truth: database/migrations/*.sql (apply with Goose).
+// Do not generate migrations from this archive or assume every table exists.
+
 Project EcoSnap {
   database_type: 'PostgreSQL'
   Note: 'Firebase Auth for login, Firebase Storage for media, PostgreSQL for application and transaction data.'

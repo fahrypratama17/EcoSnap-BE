@@ -2,7 +2,7 @@
 
 Mulai dari sini. Dokumen per fitur dirujuk di bagian 4; dokumen ini memuat hal yang berlaku di semua endpoint, urutan pemanggilan per layar, dan katalog error.
 
-**Status:** 46 route tercatat di router. Suite backend lokal PostgreSQL terbaru: **68 tes top-level + 120 subtest PASS, 0 FAIL/SKIP**; build/vet dan PDF terender juga lulus ([bukti](../test-results/backend-support-reports-notifications-2026-11-21.md)). Pemilik sebelumnya melaporkan migration 00001–00010 Applied dan smoke **57 lulus, 0 gagal** dengan Firebase nyata dan Supabase development ([bukti](../test-results/gamification-2026-11-21.md)). Endpoint settings, laporan/PDF, bantuan dan inbox ditambahkan sesudah smoke tersebut: belum diuji dengan Firebase/Supabase nyata. Migration 00011–00012 belum diterapkan ke Supabase. Integrasi Android belum diuji. Jika respons berbeda, laporkan request tanpa token/credential.
+**Status:** 46 route tercatat di router. Suite backend lokal PostgreSQL terbaru: **90 tes top-level + 134 subtest PASS, 0 FAIL/SKIP**; build/vet dan runtime HTTP juga lulus ([bukti fondasi](../test-results/server-foundation-2026-11-22.md)). Render PDF dibuktikan pada [batch sebelumnya](../test-results/backend-support-reports-notifications-2026-11-21.md). Pemilik sebelumnya melaporkan migration 00001–00010 Applied dan smoke **57 lulus, 0 gagal** dengan Firebase nyata dan Supabase development ([bukti](../test-results/gamification-2026-11-21.md)). Endpoint settings, laporan/PDF, bantuan dan inbox ditambahkan sesudah smoke tersebut: belum diuji dengan Firebase/Supabase nyata. Migration 00011–00012 belum diterapkan ke Supabase. Integrasi Android belum diuji. Jika respons berbeda, laporkan request tanpa token/credential.
 
 ## 1. Alamat server
 
@@ -39,9 +39,11 @@ Backend memakai HTTP biasa saat development, jadi Android perlu mengizinkan clea
 | Tarif/hasil per item | String desimal (`"150.00"`, `"375.00000"`) |
 | Daftar kosong | Array `[]`, bukan `null` |
 | Parameter asing | Query atau field body yang tidak dikenal → **400**. Jangan mengirim parameter tambahan. |
-| Body | Maks. 16 KiB. Satu objek JSON saja, tanpa teks tambahan sesudahnya. |
-| Idempotency-Key | Wajib pada `POST /deposits` dan `POST /rewards/{id}/redeem` (8–128 karakter `A-Z a-z 0-9 - _`). Lihat bagian 5. |
-| Rute/metode yang tidak ada | Respons standar net/http (teks biasa), bukan envelope JSON. Jangan mem-parsing JSON pada 404/405 dari rute yang tidak dikenal. |
+| Body | Maks. 16 KiB; khusus pembuatan tiket bantuan 64 KiB. Satu objek JSON saja, tanpa teks tambahan sesudahnya. |
+| Idempotency-Key | Wajib pada `POST /deposits`, `POST /rewards/{id}/redeem`, dan `POST /me/support-tickets` (8–128 karakter `A-Z a-z 0-9 - _`). Lihat bagian 5. |
+| Rute/metode yang tidak ada | Envelope JSON: 404 `not_found` atau 405 `method_not_allowed`; header `Allow` dipertahankan. Redirect normal dan HEAD tetap mengikuti net/http. |
+| Korelasi | Setiap respons dari handler aplikasi membawa `X-Request-ID` baru buatan server. Kirim ID ini saat melapor; jangan kirim token/body sensitif. ID masukan klien tidak dipercaya. |
+| Deadline | Context request maksimal 15 detik, termasuk auth; operasi database umumnya 5 detik, laporan 10 detik. Deadline bersifat kooperatif, bukan penghentian paksa goroutine. Batas transport dapat menutup koneksi tanpa JSON. |
 
 **Dua gaya pagination:**
 - **Cursor** (riwayat poin, setoran mitra, voucher, artikel): kirim `limit` (1–100, default 20) dan `cursor` dari `pagination.next_cursor`. Berhenti jika `next_cursor` bernilai `null`. Cursor bersifat buram: jangan diurai, jangan disimpan permanen, jangan dipakai ulang dengan filter lain.
@@ -162,6 +164,8 @@ Percabangan memakai `code`. Status yang sama dapat membawa code berbeda.
 | 403 | `deposit_forbidden` | Bukan mitra, belum punya lokasi, atau lokasi belum verified | Tampilkan status verifikasi |
 | 403 | `claim_forbidden` | Mitra mencoba klaim | Tampilkan pesan |
 | 403 | `redeem_forbidden` | Mitra mencoba menukar reward | Tampilkan pesan |
+| 404 | `not_found` | Tidak ada route aplikasi yang cocok | Periksa base URL/path; bukan bukti profil belum dibuat |
+| 405 | `method_not_allowed` | Method tidak cocok dengan route | Perbaiki method sesuai header `Allow` |
 | 404 | `account_not_found` | Profil belum dibuat | Panggil `POST /accounts` |
 | 404 | `partner_not_found` / `waste_category_not_found` | ID tidak ada atau tersembunyi | Segarkan daftar |
 | 404 | `deposit_not_found` | Setoran tidak ada, bukan milik caller, atau belum diklaim (untuk detail user) | Kembali ke daftar |
@@ -181,7 +185,7 @@ Percabangan memakai `code`. Status yang sama dapat membawa code berbeda.
 | 415 | `unsupported_media_type` | Content-Type bukan JSON | Bug klien |
 | 429 | `ticket_limit_reached` | Sudah ada 20 tiket belum selesai | Tunggu tindak lanjut; retry tiket lama tetap memakai key yang sama |
 | 500 | `internal_error` | Kesalahan server | Tampilkan pesan umum; boleh coba lagi |
-| 504 | `request_timeout` | Server melewati deadline (laporan 10 detik; lainnya 5 detik) | **Ulangi dengan Idempotency-Key yang sama** pada setoran, penukaran dan tiket; untuk klaim, kirim ulang token yang sama |
+| 504 | `request_timeout` | Deadline request/auth (15 detik) atau operasi (laporan 10 detik; umumnya 5 detik) | **Ulangi dengan Idempotency-Key yang sama** pada setoran, penukaran dan tiket; untuk klaim, kirim ulang token yang sama. Jangan menganggap timeout berarti transaksi belum commit. |
 
 Aturan retry: 5xx/504/jaringan putus → ulangi dengan **key/token yang sama** (aman). 4xx → jangan diulang tanpa mengubah request.
 
@@ -205,6 +209,20 @@ git switch dev
 git pull --ff-only origin dev
 ```
 
-Simpan perubahan lokal sendiri sebelum berpindah branch; jangan melakukan reset paksa. Untuk meninjau per fitur, tersedia `feat/account-settings`, `feat/activity-reports`, `feat/in-app-notifications`, dan `feat/support-tickets`, berurutan dari fondasi sebelumnya (stacked). Branch fitur historis serta `feat/gamification` juga dipublikasikan untuk jejak progress. Tidak perlu menarik atau menggabungkan semua branch satu per satu bila memakai `dev`.
+Simpan perubahan lokal sendiri sebelum berpindah branch; jangan melakukan reset paksa. Untuk meninjau per fitur, gunakan `feat/account-settings`, `feat/activity-reports`, `feat/in-app-notifications`, dan `feat/support-tickets`; hardening berikutnya dibagi menjadi `feat/server-lifecycle`, `feat/database-pool`, dan `feat/http-transport`. Branch fitur bersifat stacked/berurutan, bukan perubahan yang harus digabung semua satu per satu. Branch historis serta `feat/gamification` juga dipertahankan untuk jejak progress. Gunakan `dev` untuk hasil integrasi.
 
-Publikasi berarti progress kode dapat dibagikan, bukan semua integrasi selesai. Laporan lokal 68 tes top-level + 120 subtest PASS tidak menggantikan smoke Firebase/Supabase/Android fitur baru. Koordinasikan migration 00011–00012 ke database development dengan pemilik memakai runbook; jangan menjalankan SQL atau seed tanpa memastikan database yang dituju. Credential database dan Firebase tetap disediakan di environment masing-masing, tidak dikirim bersama repo.
+Publikasi berarti progress kode dapat dibagikan, bukan semua integrasi selesai. Laporan lokal 90 tes top-level + 134 subtest PASS tidak menggantikan smoke Firebase/Supabase/Android fitur baru. Koordinasikan migration 00011–00012 ke database development dengan pemilik memakai runbook; jangan menjalankan SQL atau seed tanpa memastikan database yang dituju. Credential database dan Firebase tetap disediakan di environment masing-masing, tidak dikirim bersama repo.
+
+## 10. Operasi server dan batas koneksi
+
+Server membuka listener sebelum mencetak alamat listening, sehingga port bentrok tidak dilaporkan sebagai startup sukses. Shutdown memberi request aktif hingga 10 detik untuk selesai; jika batas terlampaui, koneksi HTTP ditutup paksa. `Pool.Close()` tetap menunggu koneksi yang dipinjam: batas 10 detik bukan jaminan batas total proses.
+
+Default pool per proses adalah maksimum 4 koneksi, minimum 0, lifetime 30 menit, idle 5 menit, health check 1 menit, connect timeout 10 detik, dan startup/ping dibatasi 10 detik. Angka ini anggaran awal demo, bukan kuota Supabase atau jaminan kapasitas. Setiap laptop/CLI/proses memakai pool sendiri; hitung total proses sebelum menaikkan batas.
+
+Konfigurasi eksplisit memakai opsi native pgx pada `DATABASE_URL`, misalnya `&pool_max_conns=4&pool_min_conns=0&pool_max_conn_lifetime=30m&pool_max_conn_idle_time=5m&pool_health_check_period=1m&connect_timeout=10` jika URL sudah mempunyai `?sslmode=require`. Health check harus positif; lifetime/idle tidak boleh negatif. Nilai lifetime/idle nol diteruskan sesuai perilaku pgx, bukan dijanjikan sebagai “unlimited”. `connect_timeout` positif mengganti default; nol/tidak diisi memakai 10 detik, dan startup tetap dibatasi context 10 detik. Jangan menyalin URL asli ke chat/log/Git. Credential tetap di environment dan file `.env.example` tidak otomatis dimuat aplikasi.
+
+Header timeout 5 detik, read timeout 15 detik, write timeout 30 detik, idle timeout 60 detik, batas header 16 KiB. Request ID/logging/panic recovery tidak menambahkan buffering PDF atau mengubah saldo. Panic sebelum respons dimulai menghasilkan 500 generik; setelah respons dimulai koneksi dibatalkan, bukan menambahkan JSON ke file unduhan.
+
+Batas wire HTTP (header terlalu besar, request rusak, timeout jaringan) ditangani net/http dan tidak dijanjikan mempunyai envelope JSON atau request ID. Batas operasional ini belum membuktikan hosting publik, Firebase nyata, maupun performa Supabase.
+
+Relasi, constraint, retensi aktual dan batas data sensitif: [model data runtime](../data-model.md). SQL migration tetap acuan; `database/schema.dbml` adalah arsip desain lama, bukan generator runtime.
