@@ -2,10 +2,9 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
-	"net/http"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -53,36 +52,21 @@ func run() error {
 	}
 
 	server := bootstrap.NewServer(cfg, authClient, pool)
-	serverErr := make(chan error, 1)
 
-	go func() {
-		serverErr <- server.ListenAndServe()
-	}()
+	listener, err := net.Listen("tcp", server.Addr)
+	if err != nil {
+		return fmt.Errorf("membuka listener HTTP: %w", err)
+	}
 
-	log.Printf("EcoSnap HTTP server listening on %s", cfg.HTTPAddr)
+	log.Printf("EcoSnap HTTP server listening on %s", listener.Addr())
 
-	select {
-	case err := <-serverErr:
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			return fmt.Errorf("menjalankan server HTTP: %w", err)
-		}
-		return nil
-	case <-ctx.Done():
+	if err := bootstrap.Serve(ctx, server, listener, 10*time.Second); err != nil {
+		return err
+	}
+
+	if ctx.Err() != nil {
 		stop()
-		log.Println("Sinyal berhenti diterima, menghentikan server...")
+		log.Println("Sinyal berhenti diterima, server HTTP berhenti dengan rapi")
 	}
-
-	shutdownCtx, cancel := context.WithTimeout(
-		context.Background(),
-		10*time.Second,
-	)
-	defer cancel()
-
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		_ = server.Close()
-		return fmt.Errorf("menghentikan server HTTP: %w", err)
-	}
-
-	log.Println("Server HTTP berhenti dengan rapi")
 	return nil
 }
