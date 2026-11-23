@@ -1,0 +1,13 @@
+{
+  "name": "ecosnap-newman-full-flow",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Disposable PostgreSQL full-flow Newman runner for EcoSnap API",
+  "scripts": {
+    "test": "node --test test-runner.cjs",
+    "run": "node run-full-flow.cjs"
+  },
+  "dependencies": {
+    "newman": "6.2.3"
+  }
+}

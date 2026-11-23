@@ -222,10 +222,11 @@ Tes otomatis backend: `./scripts/test-postgres-portable.ps1 -PostgresBin <portab
 
 ### Gate CI kontrak dan smoke offline
 
-Workflow `ci` mempertahankan job Go/PostgreSQL dan menambahkan dua job tanpa credential:
+Workflow `ci` berjalan otomatis pada push ke `main`/`dev` dan pull request menuju kedua branch itu. Job Go/PostgreSQL dipertahankan, bersama gate berikut:
 
 - `api-contracts` (Ubuntu, Python 3.12, Node 22): validasi OpenAPI, kesesuaian route Go/OpenAPI/Postman, schema JSON koleksi, environment ekspor tanpa secret, dan sintaks script Postman; termasuk fixture negatif agar gate terbukti menolak kontrak rusak.
 - `smoke-offline` (Windows PowerShell 5.1): parse ketiga script smoke lalu jalankan harness validator flow tanpa HTTP, Firebase atau database.
+- `newman-full-flow` (Ubuntu, Node 22, Go dan PostgreSQL 17 sementara): menjalankan koleksi Postman melalui server HTTP aplikasi asli dengan verifier Firebase khusus tes. Registrasi memakai akun baru; dua putaran transaksi menyediakan data pagination. Assertion, error script/jaringan, atau request yang di-skip membuat job gagal.
 
 Untuk menjalankan gate kontrak secara lokal dari virtualenv Python 3.12 aktif, dengan Node 22+ di PATH:
 
@@ -239,9 +240,21 @@ node --test scripts/test-postman-scripts.cjs
 
 Kedua CLI validator menerima `--root <direktori-repo>`; default memakai lokasi script, bukan working directory terminal. Schema resmi Postman disimpan di repo sehingga validasi tidak perlu mengambil schema dari internet. Dependency Python hanya untuk tooling, bukan aplikasi Go.
 
-Gate ini **bukan** Newman flow penuh terhadap server dan tidak membuktikan field respons runtime selalu sama dengan OpenAPI. Inventaris Go membaca registrasi literal `Handle`/`HandleFunc` di `router.go` dan `*_routes.go`; route dinamis tidak diinventarisasi. Smoke Firebase/Supabase serta Android tetap dijalankan terpisah; jangan memasukkan token asli ke koleksi/environment yang di-commit. Pengaturan branch protection GitHub tidak diubah.
+Gate kontrak/offline tidak menggantikan flow server; job `newman-full-flow` menguji HTTP, service dan SQL melalui koleksi asli, tetapi belum memvalidasi semua field respons terhadap OpenAPI secara otomatis. Inventaris route statis membaca registrasi literal `Handle`/`HandleFunc` di `router.go` dan `*_routes.go`; route dinamis tidak diinventarisasi. Firebase/Supabase nyata dan Android tetap diuji terpisah. CI tidak deploy aplikasi atau menerapkan migration ke database development. Pengaturan branch protection GitHub tidak diubah.
 
 Bukti perintah lokal dan batas gate: [CI integrasi 23 November 2026](../test-results/ci-integration-checks-2026-11-23.md).
+
+Untuk full flow lokal, siapkan PostgreSQL **disposable pada loopback** melalui `ECOSNAP_TEST_ADMIN_URL` sesuai guard fixture (bukan `DATABASE_URL` development), lalu:
+
+```text
+npm ci --prefix scripts/newman --ignore-scripts
+node --test scripts/newman/test-runner.cjs
+go test -p 1 -mod=readonly -tags newman -count=1 -v ./internal/repository/postgres -run "^TestNewmanFullFlow$"
+```
+
+`go test ./...` biasa tidak memerlukan Newman; test khusus ini hanya masuk lewat build tag `newman` dan gagal jika prasyaratnya tidak ada. Database dan listener HTTP dibersihkan sesudah test, termasuk saat flow gagal. Token sintetis hanya dikenali verifier dalam file `_test.go`, bukan konfigurasi server produksi. Jangan mengisi runner CI dengan credential asli.
+
+Bukti full flow dan jalur gagal: [Newman CI 24 November 2026](../test-results/newman-full-flow-2026-11-24.md) — 198 HTTP/677 assertion lokal, seluruh 46 operasi sukses, tujuh tes runner PASS.
 
 ## 9. Mengambil progress tim
 

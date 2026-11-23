@@ -91,3 +91,15 @@ Jalankan hanya pada database disposable: `newman run docs/api/ecosnap.postman_co
 ## Status verifikasi
 
 JSON memenuhi schema resmi Postman v2.1; 222 blok script lolos pemeriksaan sintaks dan 111 request memetakan seluruh 46 route. Newman pada server asli + PostgreSQL disposable menjalankan 104 request/354 assertion tanpa kegagalan; dua request registrasi akun yang sudah ada dan lima helper manual dikecualikan. Registrasi user/mitra baru diuji terpisah. Dua skenario guard terbukti tidak mengirim HTTP. Auth sintetis, bukan Firebase/Supabase nyata; [bukti dan batas lengkap](../test-results/integration-tools-2026-11-23.md).
+
+## Full flow otomatis di CI
+
+Job `newman-full-flow` berjalan pada push ke `main`/`dev` atau PR menuju keduanya. Go menyiapkan database PostgreSQL disposable dan server HTTP aplikasi asli; runner Newman memakai verifier Firebase sintetis khusus tes, bukan password/token Firebase nyata.
+
+Koleksi tidak diedit saat tes: runner memakai salinan in-memory untuk registrasi akun baru, satu putaran utama, lalu putaran utama baru dengan pagination. Salinan baru adalah intent transaksi berbeda; replay dalam setiap putaran tetap memakai key yang sama. Folder helper manual tidak dijalankan. Putaran kedua menyediakan minimal dua setoran, voucher dan tiket agar halaman kedua benar-benar diuji.
+
+Runner membandingkan jumlah request yang direncanakan dengan request yang selesai; guard `skipRequest` tidak boleh menghasilkan CI hijau palsu. Assertion gagal, error script/jaringan, respons hilang atau request tanpa pemeriksaan juga ditolak. Unit test runner menggunakan Newman nyata dan listener loopback untuk membuktikan jalur gagal.
+
+Perintah lokal serta batas otomatisasi: [gate CI](README.md#gate-ci-kontrak-dan-smoke-offline). CI ini tidak otomatis mengintegrasikan Android, deploy server, atau menerapkan migration ke Supabase development.
+
+Bukti lokal: [198 HTTP/677 assertion dan tujuh tes runner](../test-results/newman-full-flow-2026-11-24.md). Hasil GitHub dicatat terpisah dari hasil lokal.

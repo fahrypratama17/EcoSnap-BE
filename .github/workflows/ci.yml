@@ -54,6 +54,40 @@ jobs:
         shell: powershell
         run: ./scripts/test-smoke-flows.ps1
 
+  newman-full-flow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      ECOSNAP_TEST_ADMIN_URL: postgresql://postgres@127.0.0.1:5432/postgres?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: scripts/newman/package-lock.json
+      - name: Install pinned Newman tooling
+        run: npm ci --prefix scripts/newman --ignore-scripts
+      - name: Prove Newman detects failed and skipped checks
+        run: node --test scripts/newman/test-runner.cjs
+      - name: Exercise full HTTP flow on disposable PostgreSQL
+        run: |
+          go test -p 1 -mod=readonly -tags newman -count=1 -v ./internal/repository/postgres -run '^TestNewmanFullFlow$' 2>&1 | tee newman.log
+          test "${PIPESTATUS[0]}" -eq 0
+          if grep -q -- '--- SKIP' newman.log; then grep -- '--- SKIP' newman.log; exit 1; fi
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 20

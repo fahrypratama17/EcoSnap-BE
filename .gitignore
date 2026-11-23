@@ -14,3 +14,6 @@
 /app.exe
 /seed-partners.exe
 *.test.exe
+
+# Newman CI tooling dependencies
+/scripts/newman/node_modules/
