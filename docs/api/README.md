@@ -220,6 +220,29 @@ Mode smoke tambahan:
 
 Tes otomatis backend: `./scripts/test-postgres-portable.ps1 -PostgresBin <portable-pg-bin>` atau `go test -p 1 -mod=readonly -count=1 -v ./...` dengan `ECOSNAP_TEST_ADMIN_URL` menuju PostgreSQL loopback disposable yang sesuai guard fixture (bukan DATABASE_URL development). Hasil terakhir mencakup laporan, bantuan, inbox dan settings; lihat bukti di atas. Riwayat keputusan dan status per task ada di [BUILD_PROCESS.md](../../BUILD_PROCESS.md).
 
+### Gate CI kontrak dan smoke offline
+
+Workflow `ci` mempertahankan job Go/PostgreSQL dan menambahkan dua job tanpa credential:
+
+- `api-contracts` (Ubuntu, Python 3.12, Node 22): validasi OpenAPI, kesesuaian route Go/OpenAPI/Postman, schema JSON koleksi, environment ekspor tanpa secret, dan sintaks script Postman; termasuk fixture negatif agar gate terbukti menolak kontrak rusak.
+- `smoke-offline` (Windows PowerShell 5.1): parse ketiga script smoke lalu jalankan harness validator flow tanpa HTTP, Firebase atau database.
+
+Untuk menjalankan gate kontrak secara lokal dari virtualenv Python 3.12 aktif, dengan Node 22+ di PATH:
+
+```text
+python -m pip install -r scripts/requirements-api-contracts.txt
+python scripts/check-api-contracts.py
+node scripts/check-postman-scripts.cjs
+python scripts/test-api-contracts.py
+node --test scripts/test-postman-scripts.cjs
+```
+
+Kedua CLI validator menerima `--root <direktori-repo>`; default memakai lokasi script, bukan working directory terminal. Schema resmi Postman disimpan di repo sehingga validasi tidak perlu mengambil schema dari internet. Dependency Python hanya untuk tooling, bukan aplikasi Go.
+
+Gate ini **bukan** Newman flow penuh terhadap server dan tidak membuktikan field respons runtime selalu sama dengan OpenAPI. Inventaris Go membaca registrasi literal `Handle`/`HandleFunc` di `router.go` dan `*_routes.go`; route dinamis tidak diinventarisasi. Smoke Firebase/Supabase serta Android tetap dijalankan terpisah; jangan memasukkan token asli ke koleksi/environment yang di-commit. Pengaturan branch protection GitHub tidak diubah.
+
+Bukti perintah lokal dan batas gate: [CI integrasi 23 November 2026](../test-results/ci-integration-checks-2026-11-23.md).
+
 ## 9. Mengambil progress tim
 
 Gunakan `dev` untuk mengambil seluruh progress backend, bukan `main` yang masih baseline:

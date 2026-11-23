@@ -10,6 +10,50 @@ permissions:
   contents: read
 
 jobs:
+  api-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/requirements-api-contracts.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install contract validators
+        run: python -m pip install -r scripts/requirements-api-contracts.txt
+      - name: Validate OpenAPI and Postman route coverage
+        run: python scripts/check-api-contracts.py
+      - name: Validate Postman JavaScript
+        run: node scripts/check-postman-scripts.cjs
+      - name: Exercise contract gate failures
+        run: python scripts/test-api-contracts.py
+      - name: Exercise Postman script gate failures
+        run: node --test scripts/test-postman-scripts.cjs
+
+  smoke-offline:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse smoke scripts (Windows PowerShell 5.1)
+        shell: powershell
+        run: |
+          foreach ($path in @("scripts/smoke-test.ps1", "scripts/smoke-flow-checks.ps1", "scripts/test-smoke-flows.ps1")) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              (Join-Path (Get-Location) $path), [ref]$tokens, [ref]$errors)
+            if ($errors.Count) { $errors | Format-List; exit 1 }
+            Write-Output ("PARSE_PASS " + $path)
+          }
+      - name: Exercise offline flow validators
+        shell: powershell
+        run: ./scripts/test-smoke-flows.ps1
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
