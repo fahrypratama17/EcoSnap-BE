@@ -225,4 +225,6 @@ Header timeout 5 detik, read timeout 15 detik, write timeout 30 detik, idle time
 
 Batas wire HTTP (header terlalu besar, request rusak, timeout jaringan) ditangani net/http dan tidak dijanjikan mempunyai envelope JSON atau request ID. Batas operasional ini belum membuktikan hosting publik, Firebase nyata, maupun performa Supabase.
 
+Bukti tambahan 2026-11-23: [sinyal OS Windows pada cmd/app](../test-results/process-signals-2026-11-23.md) membuktikan idle shutdown dan drain request aktif lewat Ctrl+C/Ctrl+Break (SIGTERM Linux belum diuji). [Beban tulis reward lokal](../test-results/write-load-2026-11-23.md) mencatat 248 request, termasuk 192 redeem dengan retry/balapan stok, tanpa debit ganda atau selisih wallet-ledger. Keduanya memakai auth sintetis dan PostgreSQL disposable; tidak menggantikan Firebase/Supabase/Android nyata atau menjanjikan kapasitas publik.
+
 Relasi, constraint, retensi aktual dan batas data sensitif: [model data runtime](../data-model.md). SQL migration tetap acuan; `database/schema.dbml` adalah arsip desain lama, bukan generator runtime.
