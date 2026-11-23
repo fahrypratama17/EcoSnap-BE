@@ -5,25 +5,50 @@
 
 
 .DESCRIPTION
-  Prerequisites: server running (go run ./cmd/app), migrations 00001-00010
-  applied, seeds run (seed-partners, seed-point-rates, seed-rewards,
-  seed-articles), one mitra account (verified location) and one user account
-  registered via POST /api/v1/accounts.
+  Prerequisites: server running (go run ./cmd/app), all migrations through
+  00012 applied (00011 notifications and 00012 support), seeds run
+  (seed-partners, seed-point-rates, seed-rewards, seed-articles), one verified
+  mitra account and one user account registered via POST /api/v1/accounts.
 
-  Migration 00010 and a server restart are required before this script mutates
-  deposits. Mission claims award XP only; they do not change EcoPoints.
-  Passwords are prompted and never printed. Tokens are never printed. The
-  script is re-runnable: it uses unique idempotency keys and compares
-  balances relative to the starting point. Each run consumes 1 stock of the
-  500-point reward and creates 2 deposits.
-  Use a dedicated user account and do not run concurrent smoke tests for it;
-  weekly progress, badges, and mission claims are account-wide.
+  All new flow routes are preflighted before any deposit/reward/ticket mutation;
+  missing migrations/routes abort rather than treating failed reads as zero.
+  Mission claims award XP only; they do not change EcoPoints. Passwords are
+  prompted and never printed. Tokens are never printed. The script uses unique
+  idempotency keys and compares balances against each account's starting point.
+  Each full run consumes one reward stock and creates two deposits. The reward
+  cost and deposit points are selected from live estimates/catalog data.
+  Use a dedicated user account; weekly progress, badges, and mission claims are
+  account-wide.
 
   Settings checks (GET/PATCH /api/v1/me/settings) run right after login and
   profile GET, before any deposit/seed/reward/gamification step, for both the
   mitra and user accounts. Only notification_enabled and onboarding_completed
   are mutated; both are restored in a finally block and verified. Use
   -SettingsOnly to run just those checks and exit.
+
+  Flow checks (scripts/smoke-flow-checks.ps1): before ANY deposit, reward or
+  ticket mutation, a read-only preflight validates GET /me/home (both roles),
+  /me/activity-report JSON + PDF (headers, %PDF magic, startxref/xref), the
+  inbox, FAQ and support-ticket routes. A missing route or migration
+  (00011 notifications, 00012 support) aborts the run; it is never read as zero.
+  Rates, estimates, the own-mitra location (GET /partner/home then
+  /partners/{id}), the reward and mission XP come from live responses, not
+  constants. Full runs create 2 deposits, redeem 1 reward (stock -1; prefers
+  the 500-point seed reward, otherwise the cheapest affordable one) and claim
+  at most 2 missions (XP only). They verify Home counters (all-time vs WIB
+  month) against badges/report/wallet, the report totals, and the inbox events
+  from this run (deposit_credited x2, deposit_claimed x2 for the mitra,
+  voucher_issued, mission_xp_claimed per new claim); one own notification is
+  then marked read. If notification_enabled is false it is enabled only for
+  the mutating phase and restored in finally, together with the other prefs.
+
+  -FlowsOnly: preflight + FAQ/ticket validation only; no deposit, reward,
+  mission, mark-read or leaderboard mutation (settings checks still run before).
+  -CreateSupportTicket: opt-in; creates ONE synthetic "problem" ticket and
+  checks idempotency/list/detail/foreign 404. Users cannot delete tickets and
+  open + in_progress tickets are capped at 20 per account, so every run with
+  this switch consumes one slot until staff resolves it. The preflight rejects
+  the run before any deposit when 20 are already unresolved.
 
 .EXAMPLE
   ./scripts/smoke-test.ps1 -ApiKey AIzaSy...
@@ -33,7 +58,9 @@ param(
     [string]$BaseUrl = "http://127.0.0.1:8080",
     [string]$MitraEmail = "mitra.demo@ecosnap.test",
     [string]$UserEmail = "user.demo@ecosnap.test",
-    [switch]$SettingsOnly
+    [switch]$SettingsOnly,
+    [switch]$FlowsOnly,
+    [switch]$CreateSupportTicket
 )
 $ErrorActionPreference = "Stop"
 $script:failed = 0
@@ -52,50 +79,7 @@ function Login($email, $password) {
         -Body (@{ email = $email; password = $password; returnSecureToken = $true } | ConvertTo-Json)
 }
 
-# Call returns Status/Json/Raw and never throws on HTTP errors, so expected
-# rejections (403, 409, ...) can be asserted.
-function Call($method, $path, $token, $body, $extraHeaders) {
-    $headers = @{ Authorization = "Bearer $token" }
-    if ($extraHeaders) { foreach ($k in $extraHeaders.Keys) { $headers[$k] = $extraHeaders[$k] } }
-    $params = @{ Method = $method; Uri = "$BaseUrl$path"; Headers = $headers; UseBasicParsing = $true }
-    if ($null -ne $body) {
-        $params.Body = ($body | ConvertTo-Json -Depth 6)
-        $params.ContentType = "application/json"
-    }
-    try {
-        $r = Invoke-WebRequest @params
-        $status = [int]$r.StatusCode
-        $text = $r.Content
-    }
-    catch {
-        $resp = $_.Exception.Response
-        if (-not $resp) { throw }
-        $status = [int]$resp.StatusCode
-        if ($_.ErrorDetails -and $_.ErrorDetails.Message) { $text = $_.ErrorDetails.Message }
-        else { $text = (New-Object IO.StreamReader($resp.GetResponseStream())).ReadToEnd() }
-    }
-    $json = $null
-    if ($text) { try { $json = $text | ConvertFrom-Json } catch { } }
-    [pscustomobject]@{ Status = $status; Json = $json; Raw = $text }
-}
-
-function Check($name, $ok, $detail) {
-    if ($ok) {
-        $script:passed++
-        Write-Host ("  [PASS] " + $name) -ForegroundColor Green
-    }
-    else {
-        $script:failed++
-        Write-Host ("  [FAIL] " + $name) -ForegroundColor Red
-        if ($detail) { Write-Host ("         " + $detail) -ForegroundColor Yellow }
-    }
-}
-function Describe($r) {
-    $code = ""
-    if ($r.Json -and $r.Json.error) { $code = " " + $r.Json.error.code }
-    "HTTP " + $r.Status + $code
-}
-function Step($title) { Write-Host ""; Write-Host $title -ForegroundColor Cyan }
+. (Join-Path $PSScriptRoot "smoke-flow-checks.ps1")
 
 # --- Account settings checks -------------------------------------------------
 # Settings endpoint payload is exactly data; /me embeds settings separately.
@@ -244,14 +228,23 @@ if ($SettingsOnly) {
     if ($script:failed -gt 0) { exit 1 }
     exit 0
 }
+Step "2. Prasyarat data, mitra sendiri, dan rute baru (tanpa mutasi)"
 $cats = Call GET "/api/v1/waste-categories" $ut
 $plastic = ($cats.Json.data | Where-Object { $_.slug -eq "plastic" }).id
 $paper = ($cats.Json.data | Where-Object { $_.slug -eq "paper" }).id
 Check "kategori plastic dan paper ada (seed-partners)" ($plastic -and $paper) (Describe $cats)
-$partners = Call GET "/api/v1/partners?material=plastic" $ut
-$partner = $partners.Json.data | Select-Object -First 1
-Check "lokasi mitra demo terlihat (seed-partners)" ($null -ne $partner) (Describe $partners)
-if (-not ($plastic -and $paper -and $partner)) { Write-Host "Seed belum lengkap; hentikan." -ForegroundColor Red; exit 1 }
+$phome0 = Call GET "/api/v1/partner/home" $mt
+$ownPartnerId = $null
+if ($phome0.Status -eq 200) { $ownPartnerId = [string]$phome0.Json.data.partner_id }
+Check "lokasi mitra sendiri terdeteksi via /partner/home (verified)" ($phome0.Status -eq 200 -and $ownPartnerId -and $phome0.Json.data.partner_status -eq "verified") (Describe $phome0)
+$partner = $null
+if ($ownPartnerId) {
+    $pd = Call GET "/api/v1/partners/$ownPartnerId" $ut
+    $slugs = @($pd.Json.data.accepted_materials | ForEach-Object { $_.slug })
+    Check "lokasi mitra sendiri terlihat user via /partners/{id} dan menerima plastic + paper" ($pd.Status -eq 200 -and $pd.Json.data.id -eq $ownPartnerId -and ($slugs -contains "plastic") -and ($slugs -contains "paper")) (Describe $pd)
+    if ($pd.Status -eq 200) { $partner = $pd.Json.data }
+}
+if (-not ($plastic -and $paper -and $partner)) { Write-Host "Seed/mitra belum lengkap; hentikan sebelum mutasi." -ForegroundColor Red; exit 1 }
 
 # Fail before any deposit mutation if migration 00010/server deployment is absent.
 $missions0 = Call GET "/api/v1/me/missions" $ut
@@ -259,6 +252,20 @@ $badges0 = Call GET "/api/v1/me/badges" $ut
 if ($missions0.Status -ne 200 -or $badges0.Status -ne 200) {
     Write-Host "Gamification API unavailable. Apply migration 00010 and restart the server before rerunning; no deposits were created." -ForegroundColor Red
     exit 1
+}
+$preflight = Invoke-FlowPreflight $ut $mt ([bool]$CreateSupportTicket)
+if (-not $preflight.Ok) {
+    Write-Host "Flow preflight failed (rute/migrasi/kontrak). Tidak ada setoran, penukaran, misi, atau tiket yang dibuat." -ForegroundColor Red
+    Write-Host ("Hasil: " + $script:passed + " lulus, " + $script:failed + " gagal") -ForegroundColor Red
+    exit 1
+}
+if ($FlowsOnly) {
+    Step "3. Bantuan (FAQ dan tiket)"
+    Test-SupportFlows $ut $mt $run ([bool]$CreateSupportTicket) $preflight.Unresolved
+    Write-Host ""
+    Write-Host ("Flows-only: " + $script:passed + " lulus, " + $script:failed + " gagal") -ForegroundColor $(if ($script:failed -eq 0) { "Green" } else { "Red" })
+    if ($script:failed -gt 0) { exit 1 }
+    exit 0
 }
 $periodStart = [string]$missions0.Json.data.period_start
 $periodEnd = [string]$missions0.Json.data.period_end
@@ -276,13 +283,45 @@ $start = [int64]$w0.balance
 $spent0 = [int64]$w0.total_spent
 Write-Host ("  saldo awal user: " + $start + " poin")
 
-Step "2. Estimasi dan setoran oleh mitra"
+Step "2b. Estimasi (tarif aktual mitra sendiri) dan pilihan reward, sebelum mutasi"
 $items = @(@{ category_id = $plastic; weight_kg = "1.000" }, @{ category_id = $paper; weight_kg = "0.500" })
+$items2 = @(@{ category_id = $plastic; weight_kg = "5.000" })
+$grams1 = [int64]1500
+$grams2 = [int64]5000
 $est = Call POST "/api/v1/point-estimates" $ut @{ partner_id = $partner.id; items = $items }
-Check "estimasi 1 kg plastik + 0,5 kg kertas = 140 poin" ($est.Status -eq 200 -and $est.Json.data.estimated_points -eq 140) (Describe $est)
+$est2 = Call POST "/api/v1/point-estimates" $ut @{ partner_id = $partner.id; items = $items2 }
+Check "estimasi setoran 1 dan 2 tersedia (200)" ($est.Status -eq 200 -and $est2.Status -eq 200) ((Describe $est) + " / " + (Describe $est2))
+$estOk = $false
+if ($est.Status -eq 200 -and $est2.Status -eq 200) {
+    $a1 = Assert-Problems "estimasi 1 kg plastik + 0,5 kg kertas konsisten dengan tarif respons" (Get-EstimateProblems $est.Json.data $items)
+    $a2 = Assert-Problems "estimasi 5 kg plastik konsisten dengan tarif respons" (Get-EstimateProblems $est2.Json.data $items2)
+    $estOk = $a1 -and $a2 -and [int64]$est.Json.data.estimated_points -gt 0 -and [int64]$est2.Json.data.estimated_points -gt 0
+}
+if (-not $estOk) { Write-Host "Estimasi tidak valid; hentikan sebelum mutasi." -ForegroundColor Red; exit 1 }
+$pts1 = [int64]$est.Json.data.estimated_points
+$pts2 = [int64]$est2.Json.data.estimated_points
+$totalPts = $pts1 + $pts2
+$funds = $start + $totalPts
+$rewards = Call GET "/api/v1/rewards" $ut
+$cheap = Select-Reward $rewards.Json.data $funds
+Check "katalog reward punya reward tersedia yang terjangkau saldo akhir ($funds poin)" ($null -ne $cheap) (Describe $rewards)
+if ($null -eq $cheap) { Write-Host "Tidak ada reward terjangkau; hentikan sebelum setoran." -ForegroundColor Red; exit 1 }
+$cost = [int64]$cheap.cost_points
+Write-Host ("  estimasi: setoran 1 = " + $pts1 + ", setoran 2 = " + $pts2 + " poin; reward dipilih seharga " + $cost + " poin")
+
+$home0 = $preflight.HomeUser
+$phomeBase = $phome0.Json.data
+$prefUser = New-NotificationPrefState "user" $ut $userSettings0
+$prefMitra = New-NotificationPrefState "mitra" $mt $mitraSettings0
+$newMissionClaims = New-Object System.Collections.ArrayList
+try {
+Enable-NotificationPref $prefUser
+Enable-NotificationPref $prefMitra
+
+Step "3. Setoran oleh mitra sendiri"
 $key1 = "smoke-$run-a"
 $dep = Call POST "/api/v1/deposits" $mt @{ items = $items } @{ "Idempotency-Key" = $key1 }
-Check "mitra membuat setoran (201), total dihitung server" ($dep.Status -eq 201 -and $dep.Json.data.total_points -eq 140 -and $dep.Json.data.status -eq "created") (Describe $dep)
+Check "mitra membuat setoran (201), total dihitung server = estimasi ($pts1)" ($dep.Status -eq 201 -and $dep.Json.data.total_points -eq $pts1 -and $dep.Json.data.status -eq "created") (Describe $dep)
 $depId = $dep.Json.data.id
 $again = Call POST "/api/v1/deposits" $mt @{ items = $items } @{ "Idempotency-Key" = $key1 }
 Check "retry key sama -> setoran yang sama (200)" ($again.Status -eq 200 -and $again.Json.data.id -eq $depId) (Describe $again)
@@ -291,28 +330,28 @@ Check "user biasa tidak boleh membuat setoran (403)" ($bad.Status -eq 403) (Desc
 $cheat = Call POST "/api/v1/deposits" $mt @{ items = $items; total_points = 99999 } @{ "Idempotency-Key" = "smoke-$run-cheat" }
 Check "total dari client ditolak (400)" ($cheat.Status -eq 400) (Describe $cheat)
 
-Step "3. QR, preview, dan klaim"
+Step "3b. QR, preview, dan klaim"
 $qr = Call POST "/api/v1/deposits/$depId/qr" $mt
 Check "mitra menerbitkan QR (201) dengan warning dan server_time" ($qr.Status -eq 201 -and $qr.Json.data.token.Length -eq 43 -and $qr.Json.data.warning -and $qr.Json.data.server_time) (Describe $qr)
 $token = $qr.Json.data.token
 $secs = ([datetime]$qr.Json.data.expires_at - [datetime]$qr.Json.data.server_time).TotalSeconds
 Check "QR berlaku 10 menit (600 detik)" ([math]::Abs($secs - 600) -lt 2) ("selisih " + $secs + " detik")
 $prev = Call POST "/api/v1/deposit-claims/preview" $ut @{ token = $token }
-Check "user preview: 140 poin dari Bank Sampah Tunas" ($prev.Status -eq 200 -and $prev.Json.data.total_points -eq 140) (Describe $prev)
+Check "user preview: $pts1 poin" ($prev.Status -eq 200 -and $prev.Json.data.total_points -eq $pts1) (Describe $prev)
 $missionsBeforeFirstClaim = Call GET "/api/v1/me/missions" $ut
 Check "unclaimed deposit does not increase mission progress" ($missionsBeforeFirstClaim.Status -eq 200 -and $missionsBeforeFirstClaim.Json.data.period_start -eq $periodStart -and $missionsBeforeFirstClaim.Json.data.missions[0].progress -eq [int64]$missionsById0.first_deposit.progress -and $missionsBeforeFirstClaim.Json.data.missions[1].progress -eq [int64]$missionsById0.three_kilograms.progress) (Describe $missionsBeforeFirstClaim)
 $mclaim = Call POST "/api/v1/deposit-claims" $mt @{ token = $token }
 Check "mitra tidak boleh klaim (403)" ($mclaim.Status -eq 403) (Describe $mclaim)
 $claim = Call POST "/api/v1/deposit-claims" $ut @{ token = $token }
-Check "user klaim (201), saldo naik 140" ($claim.Status -eq 201 -and $claim.Json.data.points -eq 140 -and [int64]$claim.Json.data.wallet_balance -eq ($start + 140)) (Describe $claim)
+Check "user klaim (201), saldo naik $pts1" ($claim.Status -eq 201 -and $claim.Json.data.points -eq $pts1 -and [int64]$claim.Json.data.wallet_balance -eq ($start + $pts1)) (Describe $claim)
 $missionsAfterFirst = Call GET "/api/v1/me/missions" $ut
 Check "first claimed deposit adds 1 deposit / 1500 g" ($missionsAfterFirst.Status -eq 200 -and $missionsAfterFirst.Json.data.period_start -eq $periodStart -and $missionsAfterFirst.Json.data.period_end -eq $periodEnd -and $missionsAfterFirst.Json.data.missions[0].progress -eq ([int64]$missionsById0.first_deposit.progress + 1) -and $missionsAfterFirst.Json.data.missions[1].progress -eq ([int64]$missionsById0.three_kilograms.progress + 1500)) (Describe $missionsAfterFirst)
 Check "deposit progress alone awards no XP" ($missionsAfterFirst.Status -eq 200 -and [int64]$missionsAfterFirst.Json.data.weekly_xp -eq $weeklyXp0 -and [int64]$missionsAfterFirst.Json.data.total_xp -eq $totalXp0) (Describe $missionsAfterFirst)
 $badgesAfterFirst = Call GET "/api/v1/me/badges" $ut
 $badgeFirstAfter = $badgesAfterFirst.Json.data.badges | Where-Object { $_.id -eq "deposit_1" }
-Check "first deposit earns permanent deposit_1 badge" ($badgesAfterFirst.Status -eq 200 -and [int64]$badgesAfterFirst.Json.data.claimed_deposits -eq ($badgeClaimed0 + 1) -and [int64]$badgesAfterFirst.Json.data.claimed_weight_grams -eq ($badgeWeight0 + 1500) -and $badgeFirstAfter.earned) (Describe $badgesAfterFirst)
+Check "first deposit earns permanent deposit_1 badge" ($badgesAfterFirst.Status -eq 200 -and [int64]$badgesAfterFirst.Json.data.claimed_deposits -eq ($badgeClaimed0 + 1) -and [int64]$badgesAfterFirst.Json.data.claimed_weight_grams -eq ($badgeWeight0 + $grams1) -and $badgeFirstAfter.earned) (Describe $badgesAfterFirst)
 $replay = Call POST "/api/v1/deposit-claims" $ut @{ token = $token }
-Check "klaim ulang oleh user sama -> 200 tanpa kredit ganda" ($replay.Status -eq 200 -and [int64]$replay.Json.data.wallet_balance -eq ($start + 140)) (Describe $replay)
+Check "klaim ulang oleh user sama -> 200 tanpa kredit ganda" ($replay.Status -eq 200 -and [int64]$replay.Json.data.wallet_balance -eq ($start + $pts1)) (Describe $replay)
 $reissue = Call POST "/api/v1/deposits/$depId/qr" $mt
 Check "QR tidak bisa diterbitkan ulang setelah diklaim (409)" ($reissue.Status -eq 409) (Describe $reissue)
 $mdep = Call GET "/api/v1/deposits/$depId" $mt
@@ -320,18 +359,19 @@ Check "detail setoran mitra: status claimed" ($mdep.Status -eq 200 -and $mdep.Js
 $udep = Call GET "/api/v1/me/deposits/$depId" $ut
 Check "detail setoran untuk pengklaim (200)" ($udep.Status -eq 200 -and $udep.Json.data.items.Count -eq 2) (Describe $udep)
 
-Step "3b. Setoran kedua (500 poin)"
-$items2 = @(@{ category_id = $plastic; weight_kg = "5.000" })
+Step "3c. Setoran kedua"
 $dep2 = Call POST "/api/v1/deposits" $mt @{ items = $items2 } @{ "Idempotency-Key" = "smoke-$run-b" }
-Check "setoran 5 kg plastik = 500 poin" ($dep2.Status -eq 201 -and $dep2.Json.data.total_points -eq 500) (Describe $dep2)
-$qr2 = Call POST "/api/v1/deposits/$($dep2.Json.data.id)/qr" $mt
-$claim2 = Call POST "/api/v1/deposit-claims" $ut @{ token = $qr2.Json.data.token }
-Check "klaim setoran kedua, saldo awal + 640" ($claim2.Status -eq 201 -and [int64]$claim2.Json.data.wallet_balance -eq ($start + 640)) (Describe $claim2)
+Check "setoran 5 kg plastik = estimasi ($pts2 poin)" ($dep2.Status -eq 201 -and $dep2.Json.data.total_points -eq $pts2) (Describe $dep2)
+$dep2Id = $dep2.Json.data.id
+$qr2 = Call POST "/api/v1/deposits/$dep2Id/qr" $mt
+$token2 = $qr2.Json.data.token
+$claim2 = Call POST "/api/v1/deposit-claims" $ut @{ token = $token2 }
+Check "klaim setoran kedua, saldo awal + $totalPts" ($claim2.Status -eq 201 -and [int64]$claim2.Json.data.wallet_balance -eq ($start + $totalPts)) (Describe $claim2)
 Step "4. Gamification"
 $missionsAfterSecond = Call GET "/api/v1/me/missions" $ut
 $samePeriod = $missionsAfterSecond.Status -eq 200 -and $missionsAfterSecond.Json.data.period_start -eq $periodStart -and $missionsAfterSecond.Json.data.period_end -eq $periodEnd
 Check "weekly period remains unchanged during smoke test" $samePeriod $(if (-not $samePeriod) { "Period reset detected; mission claims skipped to avoid a flaky cross-week assertion." } else { Describe $missionsAfterSecond })
-Check "two claimed deposits add 2 deposits / 6500 g to weekly progress" ($samePeriod -and $missionsAfterSecond.Json.data.missions[0].progress -eq ([int64]$missionsById0.first_deposit.progress + 2) -and $missionsAfterSecond.Json.data.missions[1].progress -eq ([int64]$missionsById0.three_kilograms.progress + 6500)) (Describe $missionsAfterSecond)
+Check "two claimed deposits add 2 deposits / 6500 g to weekly progress" ($samePeriod -and $missionsAfterSecond.Json.data.missions[0].progress -eq ([int64]$missionsById0.first_deposit.progress + 2) -and $missionsAfterSecond.Json.data.missions[1].progress -eq ([int64]$missionsById0.three_kilograms.progress + ($grams1 + $grams2))) (Describe $missionsAfterSecond)
 $walletBeforeXP = (Call GET "/api/v1/me/wallet" $ut).Json.data
 $xpBeforeClaims = [int64]$missionsAfterSecond.Json.data.total_xp
 $weeklyBeforeClaims = [int64]$missionsAfterSecond.Json.data.weekly_xp
@@ -344,14 +384,14 @@ Check "mitra cannot claim missions (403)" ($mitraMission.Status -eq 403) (Descri
 if ($samePeriod) {
     foreach ($missionId in @("first_deposit", "three_kilograms")) {
         $prior = $missionsById0[$missionId]
-        $missionReward = if ($missionId -eq "first_deposit") { [int64]50 } else { [int64]100 }
+        $missionReward = [int64]$prior.reward_xp
         $expectedStatus = if ($prior.status -eq "claimed") { 200 } else { 201 }
         $missionClaim = Call POST "/api/v1/me/missions/$missionId/claim" $ut @{ period_start = $periodStart }
         $expectedClaimXP = $xpBeforeClaims + $newAwards + $(if ($expectedStatus -eq 201) { $missionReward } else { 0 })
         $expectedClaimWeeklyXP = $weeklyBeforeClaims + $newAwards + $(if ($expectedStatus -eq 201) { $missionReward } else { 0 })
         Check "$missionId claim status, reward, and XP delta match baseline" ($missionClaim.Status -eq $expectedStatus -and $missionClaim.Json.data.mission.status -eq "claimed" -and [int64]$missionClaim.Json.data.xp_awarded -eq $missionReward -and [int64]$missionClaim.Json.data.total_xp -eq $expectedClaimXP -and [int64]$missionClaim.Json.data.weekly_xp -eq $expectedClaimWeeklyXP) $(if ($missionClaim.Status -eq 410) { "Weekly period reset while the smoke test was running; subsequent mission claims were skipped." } else { Describe $missionClaim })
         if ($missionClaim.Status -eq 410) { break }
-        if ($expectedStatus -eq 201) { $newAwards += $missionReward }
+        if ($expectedStatus -eq 201) { $newAwards += $missionReward; $null = $newMissionClaims.Add($missionId) }
         $missionReplay = Call POST "/api/v1/me/missions/$missionId/claim" $ut @{ period_start = $periodStart }
         Check "$missionId replay returns 200 with no additional XP" ($missionReplay.Status -eq 200 -and [int64]$missionReplay.Json.data.xp_awarded -eq $missionReward -and [int64]$missionReplay.Json.data.total_xp -eq ($xpBeforeClaims + $newAwards) -and [int64]$missionReplay.Json.data.weekly_xp -eq ($weeklyBeforeClaims + $newAwards)) (Describe $missionReplay)
     }
@@ -362,7 +402,7 @@ if ($samePeriod) {
 }
 $badgesAfterTwo = Call GET "/api/v1/me/badges" $ut
 $badgeFirstFinal = $badgesAfterTwo.Json.data.badges | Where-Object { $_.id -eq "deposit_1" }
-Check "badge totals include both claimed deposits and 6500 g" ($badgesAfterTwo.Status -eq 200 -and [int64]$badgesAfterTwo.Json.data.claimed_deposits -eq ($badgeClaimed0 + 2) -and [int64]$badgesAfterTwo.Json.data.claimed_weight_grams -eq ($badgeWeight0 + 6500)) (Describe $badgesAfterTwo)
+Check "badge totals include both claimed deposits and 6500 g" ($badgesAfterTwo.Status -eq 200 -and [int64]$badgesAfterTwo.Json.data.claimed_deposits -eq ($badgeClaimed0 + 2) -and [int64]$badgesAfterTwo.Json.data.claimed_weight_grams -eq ($badgeWeight0 + $grams1 + $grams2)) (Describe $badgesAfterTwo)
 $badgeTimesStable = $true
 foreach ($badge in $badgesAfterTwo.Json.data.badges) {
     $oldBadge = $badgeById0[$badge.id]
@@ -398,15 +438,12 @@ finally {
     Check "restore original leaderboard visibility" ($restored.Status -eq 200 -and $restored.Json.data.visible -eq [bool]$originalVisibility) (Describe $restored)
 }
 Step "6. Reward"
-$rewards = Call GET "/api/v1/rewards" $ut
-$cheap = $rewards.Json.data | Where-Object { $_.cost_points -eq 500 } | Select-Object -First 1
-$pricey = $rewards.Json.data | Where-Object { $_.cost_points -gt ($start + 640) } | Select-Object -First 1
-Check "katalog reward ada (seed-rewards)" ($null -ne $cheap) (Describe $rewards)
 $rk = "smoke-$run-redeem"
 $red = Call POST "/api/v1/rewards/$($cheap.id)/redeem" $ut $null @{ "Idempotency-Key" = $rk }
-Check "tukar reward 500 poin (201), saldo awal + 140" ($red.Status -eq 201 -and [int64]$red.Json.data.wallet_balance -eq ($start + 140) -and $red.Json.data.voucher.code -like "ECO-*") (Describe $red)
+Check "tukar reward $cost poin (201), saldo awal + $($totalPts - $cost)" ($red.Status -eq 201 -and [int64]$red.Json.data.wallet_balance -eq ($start + $totalPts - $cost) -and $red.Json.data.voucher.code -like "ECO-*") (Describe $red)
 $redAgain = Call POST "/api/v1/rewards/$($cheap.id)/redeem" $ut $null @{ "Idempotency-Key" = $rk }
 Check "retry penukaran -> voucher sama, tidak dipotong lagi (200)" ($redAgain.Status -eq 200 -and $redAgain.Json.data.voucher.id -eq $red.Json.data.voucher.id) (Describe $redAgain)
+$pricey = Select-ExpensiveReward $rewards.Json.data $funds
 if ($pricey) {
     $poor = Call POST "/api/v1/rewards/$($pricey.id)/redeem" $ut $null @{ "Idempotency-Key" = "smoke-$run-poor" }
     Check "saldo kurang ditolak (409 insufficient_points)" ($poor.Status -eq 409 -and $poor.Json.error.code -eq "insufficient_points") (Describe $poor)
@@ -419,21 +456,76 @@ Check "voucher user tidak terlihat oleh akun lain (404)" ($vmitra.Status -eq 404
 $use = Call POST "/api/v1/me/vouchers/$vid/use" $ut
 Check "tandai voucher dipakai" ($use.Status -eq 200 -and $use.Json.data.status -eq "used") (Describe $use)
 
-Step "7. Saldo, riwayat, beranda, artikel"
+Step "6b. Kotak masuk: peristiwa dari run ini"
+$forbidden = @($token, $token2, [string]$red.Json.data.voucher.code)
+$expectedUser = New-Object System.Collections.ArrayList
+$null = $expectedUser.Add(@{ type = "deposit_credited"; target_type = "deposit"; target_id = $depId })
+$null = $expectedUser.Add(@{ type = "deposit_credited"; target_type = "deposit"; target_id = $dep2Id })
+$null = $expectedUser.Add(@{ type = "voucher_issued"; target_type = "voucher"; target_id = $vid })
+foreach ($mid in $newMissionClaims) { $null = $expectedUser.Add(@{ type = "mission_xp_claimed"; target_type = "mission"; target_id = $mid }) }
+$expectedMitra = @(@{ type = "deposit_claimed"; target_type = "deposit"; target_id = $depId }, @{ type = "deposit_claimed"; target_type = "deposit"; target_id = $dep2Id })
+$newUserNotes = @(Test-InboxEvents "user" $ut $preflight.InboxUser $expectedUser $forbidden)
+$newMitraNotes = @(Test-InboxEvents "mitra" $mt $preflight.InboxMitra $expectedMitra $forbidden)
+
+Step "7. Saldo, riwayat, beranda, laporan, artikel"
 $w1 = (Call GET "/api/v1/me/wallet" $ut).Json.data
-Check "saldo akhir = awal + 140" ([int64]$w1.balance -eq ($start + 140)) ("saldo " + $w1.balance)
-Check "total_spent naik 500" ([int64]$w1.total_spent -eq ($spent0 + 500)) ("total_spent " + $w1.total_spent)
+Check "saldo akhir = awal + $($totalPts - $cost)" ([int64]$w1.balance -eq ($start + $totalPts - $cost)) ("saldo " + $w1.balance)
+Check "total_spent naik $cost" ([int64]$w1.total_spent -eq ($spent0 + $cost)) ("total_spent " + $w1.total_spent)
 $hist = Call GET "/api/v1/me/point-history?limit=3" $ut
-$sum = 0; foreach ($e in $hist.Json.data) { $sum += [int64]$e.amount }
-Check "riwayat poin terbaru: -500, +500, +140" ($hist.Status -eq 200 -and $sum -eq 140 -and $hist.Json.data[0].source -eq "redemption") (Describe $hist)
+$hd = @($hist.Json.data)
+Check "riwayat poin terbaru: -$cost, +$pts2, +$pts1" ($hist.Status -eq 200 -and $hd.Count -eq 3 -and [int64]$hd[0].amount -eq -$cost -and $hd[0].source -eq "redemption" -and [int64]$hd[1].amount -eq $pts2 -and [int64]$hd[2].amount -eq $pts1) (Describe $hist)
 $uhome = Call GET "/api/v1/me/home" $ut
-Check "beranda user" ($uhome.Status -eq 200 -and $uhome.Json.data.deposits_claimed -ge 2) (Describe $uhome)
+$h1 = $uhome.Json.data
+Check "beranda user: bentuk konsisten" ($uhome.Status -eq 200 -and (Get-HomeShapeProblems $h1 "user").Count -eq 0) ((Describe $uhome) + " " + ((Get-HomeShapeProblems $h1 "user") -join "; "))
+if ($uhome.Status -eq 200) {
+    Assert-Problems "beranda: deposits_claimed/total_weight_kg all-time dan monthly_deposits naik tepat 2 klaim, wallet sesuai" (Get-HomeDeltaProblems $home0 $h1 2 ($grams1 + $grams2) $totalPts $cost) | Out-Null
+    $reportNowU = Call GET "/api/v1/me/activity-report" $ut
+    $walletNow = Call GET "/api/v1/me/wallet" $ut
+    $inboxNow = Get-InboxSnapshot $ut
+    $missionsNow = Call GET "/api/v1/me/missions" $ut
+    $crossReady = $reportNowU.Status -eq 200 -and $walletNow.Status -eq 200 -and $null -ne $inboxNow -and $badgesAfterTwo.Status -eq 200
+    Check "sumber silang beranda tersedia" $crossReady "report/wallet/inbox/badges"
+    if ($crossReady) { Assert-Problems "beranda cocok dengan badges (all-time), laporan bulan sama, wallet, dan unread inbox" (Get-HomeCrossProblems $h1 $badgesAfterTwo.Json.data $reportNowU.Json.data $walletNow.Json.data $inboxNow.Unread) | Out-Null }
+    if ($missionsNow.Status -eq 200) { Assert-Problems "kartu misi beranda sama dengan /me/missions setelah klaim" (Get-HomeMissionProblems $h1.missions $missionsNow.Json.data) | Out-Null }
+    Test-HomeClickCards "user" $ut $mt $h1
+}
+$mhome = Call GET "/api/v1/me/home" $mt
+Check "beranda via /me/home untuk mitra: missions null" ($mhome.Status -eq 200 -and (Get-HomeShapeProblems $mhome.Json.data "mitra").Count -eq 0) (Describe $mhome)
 $phome = Call GET "/api/v1/partner/home" $mt
-Check "beranda mitra: lokasi verified" ($phome.Status -eq 200 -and $phome.Json.data.partner_status -eq "verified") (Describe $phome)
+$pg0 = ConvertTo-Grams $phomeBase.claimed_weight_kg
+$pg1 = ConvertTo-Grams $phome.Json.data.claimed_weight_kg
+Check "beranda mitra: verified, 2 setoran diklaim, poin dan berat naik sesuai" ($phome.Status -eq 200 -and $phome.Json.data.partner_status -eq "verified" -and [int64]$phome.Json.data.deposits.claimed -eq ([int64]$phomeBase.deposits.claimed + 2) -and [int64]$phome.Json.data.claimed_points -eq ([int64]$phomeBase.claimed_points + $totalPts) -and $null -ne $pg0 -and $pg1 -eq ($pg0 + $grams1 + $grams2)) (Describe $phome)
+
+Step "7b. Laporan aktivitas setelah mutasi"
+$reportAfterU = Test-ReportEndpoints "user (setelah)" $ut "user"
+if ($null -ne $reportAfterU) { Assert-Problems "[user] laporan: 2 setoran, 6500 g, poin diperoleh dan dipakai naik sesuai" (Get-ReportDeltaProblems $preflight.ReportUser $reportAfterU "user" 2 ($grams1 + $grams2) $totalPts $cost) | Out-Null }
+$reportAfterM = Test-ReportEndpoints "mitra (setelah)" $mt "mitra"
+if ($null -ne $reportAfterM) { Assert-Problems "[mitra] laporan: 2 setoran, 6500 g, poin dikreditkan naik sesuai" (Get-ReportDeltaProblems $preflight.ReportMitra $reportAfterM "mitra" 2 ($grams1 + $grams2) $totalPts 0) | Out-Null }
+
+Step "7c. Tandai notifikasi dibaca"
+Test-InboxMarkRead "user" $ut $mt $newUserNotes
+
+Step "7d. Bantuan (FAQ dan tiket)"
+Test-SupportFlows $ut $mt $run ([bool]$CreateSupportTicket) $preflight.Unresolved
+
+Step "8. Artikel dan autentikasi"
 $arts = Call GET "/api/v1/articles?limit=10" $ut
-Check "artikel demo tampil (seed-articles)" ($arts.Status -eq 200 -and $arts.Json.data.Count -ge 5) (Describe $arts)
+Check "artikel demo tampil (seed-articles)" ($arts.Status -eq 200 -and $arts.Json.data.Count -ge 1) (Describe $arts)
 $noauth = Call GET "/api/v1/me/wallet" "token-palsu"
 Check "token palsu ditolak (401)" ($noauth.Status -eq 401) (Describe $noauth)
+}
+finally {
+    # Always restore the temporarily enabled notification preference, then
+    # verify both accounts' settings equal the baselines (never masks the error).
+    try { Restore-NotificationPref $prefUser } catch { Write-Host "restore notification_enabled (user) failed" -ForegroundColor Red; $script:failed++ }
+    try { Restore-NotificationPref $prefMitra } catch { Write-Host "restore notification_enabled (mitra) failed" -ForegroundColor Red; $script:failed++ }
+    try {
+        $fu = Call GET "/api/v1/me/settings" $ut
+        $fm = Call GET "/api/v1/me/settings" $mt
+        Check "akhir run: settings user dan mitra sama dengan baseline" ($fu.Status -eq 200 -and $fm.Status -eq 200 -and (Test-SettingsEqual (Get-SettingsFields $fu) $userSettings0) -and (Test-SettingsEqual (Get-SettingsFields $fm) $mitraSettings0)) ((Describe $fu) + " / " + (Describe $fm))
+    }
+    catch { Write-Host "final settings verification failed" -ForegroundColor Red; $script:failed++ }
+}
 
 Write-Host ""
 Write-Host ("Hasil: " + $script:passed + " lulus, " + $script:failed + " gagal") -ForegroundColor $(if ($script:failed -eq 0) { "Green" } else { "Red" })

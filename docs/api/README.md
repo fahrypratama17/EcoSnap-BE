@@ -2,11 +2,13 @@
 
 Mulai dari sini. Dokumen ini adalah indeks, konvensi umum, ringkasan alur per layar, dan katalog error. Detail kolom per endpoint ada di dokumen fitur (bagian 4); urutan panggilan, retry, refresh, dan perubahan yang diperlukan di Android ada di [android-integration.md](android-integration.md).
 
-**Status:** 46 route, tanpa endpoint baru pada paket Home. Verifikasi paket Home: **83 tes top-level + 140 subtes PASS, 0 FAIL/SKIP** pada tiga package terdampak; vet package tersebut dan build seluruh package lulus ([bukti](../test-results/home-package-2026-11-23.md)). HTTP memakai server asli dan PostgreSQL disposable dengan pool satu koneksi, auth sintetis.
+**Status:** 46 route, tanpa endpoint baru pada paket integrasi. OpenAPI valid dan cocok dengan 435 respons JSON/58 body request sukses dari 447 HTTP lokal, seluruh 46 operasi mendapat respons sukses. Newman: 104 request/354 assertion tanpa kegagalan; smoke penuh: 186 PASS, harness offline: 84 PASS ([bukti integrasi](../test-results/integration-tools-2026-11-23.md)). Server dan PostgreSQL asli, auth sintetis. Verifikasi kode Home sebelumnya tetap terpisah: [83 tes top-level + 140 subtes PASS, vet/build](../test-results/home-package-2026-11-23.md).
 
 Checkpoint full suite sebelum paket Home: 90 tes top-level + 134 subtes PASS ([bukti fondasi](../test-results/server-foundation-2026-11-22.md)). Pemilik sebelumnya melaporkan migration 00001–00010 Applied dan smoke Firebase/Supabase **57 PASS** ([bukti](../test-results/gamification-2026-11-21.md)); smoke itu mendahului settings, laporan/PDF, bantuan, inbox dan Home baru. Fitur-fitur baru belum dibuktikan dengan Firebase/Supabase nyata; migration 00011–00012 dan integrasi runtime Android masih terbuka. Jika respons berbeda, laporkan X-Request-ID tanpa token/credential.
 
 > **Prasyarat database:** Home baru membaca `unread_count` dari tabel notifikasi (migration 00011), jadi **terapkan migration 00011 sebelum memakai `GET /me/home` versi baru**; tabel tidak ada → request gagal, tidak ada fallback `0`. Seluruh flow, termasuk bantuan/tiket, memerlukan 00011 **dan** 00012. Tidak ada migration baru di paket Home. Ini rujukan tunggal; dokumen lain menautkan ke sini.
+
+**Paket integrasi:** [OpenAPI 3.0.3](openapi.yaml) mencakup semua 46 route untuk acuan DTO/client. Impor [koleksi Postman](ecosnap.postman_collection.json) dan [environment kosong](ecosnap.postman_environment.json), lalu ikuti [panduan Postman](postman.md) untuk token dua peran, urutan flow, replay idempotency, dan efek samping. Jangan menjalankan seluruh koleksi pada database nyata; registrasi dan helper intent baru dipilih manual.
 
 ## 1. Alamat server
 
@@ -37,7 +39,7 @@ Backend memakai HTTP biasa saat development, jadi Android perlu mengizinkan clea
 | Sukses | `{"data": …}`; daftar menambah `"pagination": {…}` |
 | Error | `{"error": {"code": "…", "message": "…"}}`. Percabangan logika memakai `code` + status HTTP; `message` boleh ditampilkan ke pengguna. |
 | ID | UUID string. UID akun adalah UID Firebase. |
-| Waktu | RFC 3339 UTC, mis. `2026-11-21T08:00:00Z`. Format tanggal tampilan dibuat Android. |
+| Waktu | RFC 3339 dengan zona, mis. `2026-11-21T08:00:00Z`. Batas periode Home/laporan dapat memakai WIB `+07:00`; parse sebagai instant, jangan menganggap semua timestamp berakhiran `Z`. Format tanggal tampilan dibuat Android. |
 | Poin | Integer (bukan desimal). |
 | Berat | **String desimal bertitik**, maks. 3 desimal, mis. `"2.500"`. Jangan mengirim angka JSON, koma, atau notasi ilmiah. |
 | Tarif/hasil per item | String desimal (`"150.00"`, `"375.00000"`) |
@@ -200,6 +202,21 @@ Tidak ada endpoint untuk scan/foto sampah (menunggu model AI, Q-06), game dan mi
 ## 8. Menjalankan dan menguji backend
 
 Kontrak di atas bisa dicoba tanpa Android: ikuti [Runbook Supabase](../supabase-migration-runbook.md) lalu jalankan `./scripts/smoke-test.ps1 -ApiKey <Firebase Web API Key>`. Akun uji: `mitra.demo@ecosnap.test` dan `user.demo@ecosnap.test` (password dipegang pemilik repo).
+
+Mode smoke tambahan:
+
+```powershell
+# Settings dua peran saja; preferensi dikembalikan ke nilai awal.
+./scripts/smoke-test.ps1 -ApiKey <FirebaseWebApiKey> -SettingsOnly
+# Home, laporan JSON/PDF, inbox, FAQ dan bantuan tanpa transaksi finansial.
+./scripts/smoke-test.ps1 -ApiKey <FirebaseWebApiKey> -FlowsOnly
+# Flow penuh: dua setoran, satu reward, misi; tambah satu tiket hanya bila opt-in.
+./scripts/smoke-test.ps1 -ApiKey <FirebaseWebApiKey> -CreateSupportTicket
+# Harness offline validator; tidak menghubungi Firebase/database.
+./scripts/test-smoke-flows.ps1
+```
+
+`-FlowsOnly` tetap menjalankan pemeriksaan PATCH settings yang dipulihkan; bukan mode tanpa write HTTP sama sekali. Full smoke memerlukan data demo dan akun khusus tanpa runner bersamaan. Tiket opt-in memakai satu slot dari batas 20 tiket belum selesai dan tidak dapat dihapus user. Preflight menolak route/migration yang belum siap sebelum setoran, penukaran, atau pembuatan tiket.
 
 Tes otomatis backend: `./scripts/test-postgres-portable.ps1 -PostgresBin <portable-pg-bin>` atau `go test -p 1 -mod=readonly -count=1 -v ./...` dengan `ECOSNAP_TEST_ADMIN_URL` menuju PostgreSQL loopback disposable yang sesuai guard fixture (bukan DATABASE_URL development). Hasil terakhir mencakup laporan, bantuan, inbox dan settings; lihat bukti di atas. Riwayat keputusan dan status per task ada di [BUILD_PROCESS.md](../../BUILD_PROCESS.md).
 

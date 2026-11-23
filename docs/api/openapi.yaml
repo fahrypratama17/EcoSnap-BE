@@ -1,0 +1,2679 @@
+openapi: 3.0.3
+info:
+  title: EcoSnap Backend API
+  version: 1.0.0
+  description: |
+    Kontrak REST API backend EcoSnap (Go `net/http`, PostgreSQL, Firebase Auth). Dokumen ini diturunkan dari router,
+    handler, service, dan entity yang berjalan; 46 operasi, tanpa endpoint fiktif.
+
+    **Autentikasi.** Semua operasi kecuali `GET /health` memerlukan `Authorization: Bearer <Firebase ID token>`.
+    Identitas (UID) hanya berasal dari token; UID di body/query ditolak sebagai field/parameter asing. Token hilang,
+    salah skema, atau tidak valid menghasilkan 401 `unauthorized` dengan header `WWW-Authenticate: Bearer`.
+    Operasi **fresh auth** (`claimDeposit`, `redeemReward`) memakai verifikasi dengan pengecekan pencabutan token dan
+    akun Firebase yang dinonaktifkan (satu panggilan jaringan tambahan); token yang dicabut/dinonaktifkan mendapat 401.
+    Kegagalan verifikasi karena deadline request (15 detik) mendapat 504 `request_timeout`, bukan 401.
+
+    **Peran dan status.** Akun berperan `user` atau `mitra` dan berstatus `active` / `suspended` / `deleted`. Akun
+    non-active ditolak 403 `account_forbidden`; Firebase sudah ada tetapi profil belum dibuat `POST /accounts`
+    memberi 404 `account_not_found`. Mitra baru berstatus **pending** (`business.status`), belum punya lokasi, dan
+    tidak dapat membuat setoran atau QR sampai lokasinya `verified` secara manual oleh pemilik repo; riwayat/home
+    mitra tetap terbaca untuk lokasi non-verified (read-only).
+
+    **Envelope.** Sukses: `{"data": ...}`; daftar menambah `pagination` (cursor: `limit`, `next_cursor` nullable;
+    offset: `limit`, `offset`, `has_more`). Error: `{"error": {"code", "message"}}`. Percabangan logika memakai
+    status HTTP + `code`. Daftar kosong selalu `[]`, bukan `null`. Setiap respons membawa `X-Request-ID` buatan server
+    (ID dari klien diabaikan).
+
+    **Konvensi.** JSON `snake_case`. Body request maksimal 16 KiB (tiket bantuan 64 KiB), tepat satu objek JSON,
+    `Content-Type: application/json` (parameter charset boleh), field tidak dikenal -> 400. Query asing, berulang, atau
+    malformed -> 400. Waktu RFC 3339 (`date-time`) dan boleh memakai offset UTC (mis. `+07:00` untuk jendela WIB);
+    klien WAJIB menerima offset apa pun. Poin adalah integer; berat dan tarif adalah **string desimal** bertitik
+    (bukan angka JSON). Request: skema `additionalProperties: false`. Response: field tambahan mungkin muncul di
+    masa depan; klien harus mengabaikannya. QR setoran adalah token pembawa (bearer): siapa pun yang memegang QR aktif
+    pertama dapat mengklaimnya. Tarif, reward, voucher, FAQ, dan artikel berlabel `is_demo`/`uses_demo_rates` adalah
+    konten simulasi; voucher tidak dapat dicairkan nyata.
+  license:
+    name: Proprietary
+servers:
+  - url: http://127.0.0.1:8080
+    description: "Backend lokal"
+  - url: http://10.0.2.2:8080
+    description: "Android Emulator menuju backend di laptop"
+security:
+  - bearerAuth: []
+tags:
+  - { name: Health, description: "Liveness tanpa autentikasi" }
+  - { name: Auth, description: "Pemeriksaan token Firebase" }
+  - { name: Accounts, description: "Registrasi dan profil akun" }
+  - { name: Settings, description: "Pengaturan akun" }
+  - { name: Partners, description: "Mitra dan kategori sampah" }
+  - { name: Favorites, description: "Mitra favorit" }
+  - { name: Estimates, description: "Estimasi poin" }
+  - { name: Deposits, description: "Setoran mitra dan QR klaim" }
+  - { name: Wallet, description: "Saldo, riwayat, dan beranda" }
+  - { name: Rewards, description: "Reward dan voucher" }
+  - { name: Articles, description: "Artikel edukasi" }
+  - { name: Gamification, description: "Misi mingguan, badge, dan leaderboard" }
+  - { name: Reports, description: "Laporan aktivitas JSON dan PDF" }
+  - { name: Support, description: "FAQ dan tiket bantuan" }
+  - { name: Notifications, description: "Inbox dalam aplikasi" }
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: Liveness server
+      description: "Publik, tanpa Bearer token. Tidak memeriksa database."
+      security: []
+      responses:
+        '200':
+          description: "Server hidup."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthStatus' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      operationId: getAuthIdentity
+      summary: Klaim identitas dari token Firebase
+      description: "Hanya memeriksa token; tidak membuat atau membaca akun aplikasi. Tidak ada pemeriksaan query."
+      responses:
+        '200':
+          description: "Identitas dari token."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IdentityResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/accounts:
+    post:
+      tags: [Accounts]
+      operationId: registerAccount
+      summary: Buat profil aplikasi setelah sign-up Firebase
+      description: |
+        Idempotent: panggilan ulang dengan isi sama mengembalikan profil yang ada (200). Role `user` tidak boleh
+        mengirim `business_name`/`business_category` (kosong/dihilangkan); role `mitra` wajib keduanya dan mendapat
+        `business.status = pending` tanpa lokasi. Email diambil dari token. Pendaftaran membuat dompet dan pengaturan awal.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AccountRegistrationRequest' }
+      responses:
+        '201':
+          description: "Profil baru dibuat."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountProfileResponse' }
+        '200':
+          description: "Profil sudah ada dengan isi pendaftaran yang sama (replay)."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountProfileResponse' }
+        '400':
+          description: "`invalid_request` (JSON/field tidak valid, field asing, teks tambahan) atau `invalid_account` (nilai pendaftaran tidak valid)."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '409':
+          description: "`account_conflict`: profil sudah ada dengan data pendaftaran berbeda."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413': { $ref: '#/components/responses/BodyTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me:
+    get:
+      tags: [Accounts]
+      operationId: getMyProfile
+      summary: Profil akun, dompet ringkas, dan pengaturan
+      description: "Tidak memeriksa query. Mitra pending memiliki `business.status = pending`."
+      responses:
+        '200':
+          description: "Profil akun."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountProfileResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+    patch:
+      tags: [Accounts]
+      operationId: updateMyProfile
+      summary: Ubah nama lengkap dan/atau telepon
+      description: "Tanpa query. Kirim minimal satu field; `null` tidak diperbolehkan. Nilai di-trim."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AccountProfileUpdateRequest' }
+      responses:
+        '200':
+          description: "Profil terbaru."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountProfileResponse' }
+        '400':
+          description: "`invalid_request` (body/query tidak valid, field asing, null) atau `invalid_profile` (nilai tidak valid)."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '413': { $ref: '#/components/responses/BodyTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/settings:
+    get:
+      tags: [Settings]
+      operationId: getSettings
+      summary: Pengaturan akun
+      description: "Tanpa query (apa pun, termasuk `?` kosong, ditolak 400 `invalid_request`)."
+      responses:
+        '200':
+          description: "Pengaturan akun."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountSettingsResponse' }
+        '400':
+          description: "`invalid_request`: query tidak diterima."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+    patch:
+      tags: [Settings]
+      operationId: updateSettings
+      summary: Ubah pengaturan notifikasi/onboarding
+      description: |
+        Hanya `notification_enabled` dan/atau `onboarding_completed` (boolean, `false` sah, dihilangkan = tidak berubah,
+        `null` ditolak). Visibilitas leaderboard diubah lewat `setLeaderboardVisibility`. `notification_enabled=false`
+        menahan notifikasi baru; yang sudah ada tetap terbaca.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AccountSettingsUpdateRequest' }
+      responses:
+        '200':
+          description: "Pengaturan terbaru."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountSettingsResponse' }
+        '400':
+          description: "`invalid_request`: body/query tidak valid, field asing, null, atau tidak ada field."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '413': { $ref: '#/components/responses/BodyTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/waste-categories:
+    get:
+      tags: [Partners]
+      operationId: listWasteCategories
+      summary: Kategori sampah
+      description: "Tanpa parameter. Tidak memeriksa profil akun."
+      responses:
+        '200':
+          description: "Daftar kategori."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WasteCategoryListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/partners:
+    get:
+      tags: [Partners]
+      operationId: listPartners
+      summary: Daftar mitra terverifikasi (offset)
+      description: |
+        Hanya mitra `verified` dengan akun mitra `active`. Pencarian `q` (substring nama/area, case-insensitive) dan
+        `material` (slug kategori; slug valid tetapi tidak dikenal menghasilkan daftar kosong). Belum ada radius/GPS.
+        Parameter tidak dikenal atau berulang -> 400 `invalid_partner_query`. `limit=0` ditolak.
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: "Substring nama/area, maksimal 100 karakter (setelah trim)."
+          schema: { type: string, maxLength: 100 }
+        - name: material
+          in: query
+          required: false
+          description: "Slug kategori (huruf kecil/angka/hyphen, maks. 100; dinormalisasi lowercase)."
+          schema: { type: string, maxLength: 100, pattern: '^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$' }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: "Halaman mitra."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PartnerPageResponse' }
+        '400':
+          description: "`invalid_partner_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/partners/{partnerID}:
+    get:
+      tags: [Partners]
+      operationId: getPartner
+      summary: Detail mitra terverifikasi
+      description: "ID bukan UUID -> 400 `invalid_partner_query`. Mitra tidak ada atau tidak terlihat -> 404."
+      parameters:
+        - $ref: '#/components/parameters/PartnerID'
+      responses:
+        '200':
+          description: "Detail mitra."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PartnerDetailResponse' }
+        '400':
+          description: "`invalid_partner_query`: ID mitra bukan UUID."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: "`partner_not_found`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/favorites:
+    get:
+      tags: [Favorites]
+      operationId: listFavoritePartners
+      summary: Daftar ID mitra favorit (offset)
+      description: "Hanya `limit` (1-100, default 20) dan `offset` (0-10000, default 0); lainnya -> 400 `invalid_partner_query`."
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: "Halaman favorit."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FavoritePageResponse' }
+        '400':
+          description: "`invalid_partner_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/favorites/{partnerID}:
+    put:
+      tags: [Favorites]
+      operationId: addFavoritePartner
+      summary: Tandai mitra favorit
+      description: "Idempotent. Tanpa body dan tanpa query. Hanya mitra verified dan aktif yang dapat difavoritkan."
+      parameters:
+        - $ref: '#/components/parameters/PartnerID'
+      responses:
+        '204':
+          description: "Favorit tersimpan (atau sudah ada). Tanpa body."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+        '400':
+          description: "`invalid_partner_query`: ID bukan UUID atau ada query."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404':
+          description: "`partner_not_found` (mitra tidak terlihat) atau `account_not_found`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+    delete:
+      tags: [Favorites]
+      operationId: removeFavoritePartner
+      summary: Hapus mitra dari favorit
+      description: "Idempotent; tetap 204 bila belum favorit. Tanpa body dan tanpa query."
+      parameters:
+        - $ref: '#/components/parameters/PartnerID'
+      responses:
+        '204':
+          description: "Favorit terhapus (atau memang tidak ada). Tanpa body."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+        '400':
+          description: "`invalid_partner_query`: ID bukan UUID atau ada query."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/point-estimates:
+    post:
+      tags: [Estimates]
+      operationId: estimatePoints
+      summary: Hitung estimasi poin (bukan janji saldo)
+      description: |
+        Tanpa query. Maksimal 50 item, kategori tidak boleh ganda, tiap berat 0.001-1000.000 kg dan total maksimal
+        1000 kg. Poin = jumlah hasil kali eksak per item, dibulatkan ke bawah sekali. `partner_id` opsional memeriksa
+        material diterima mitra itu. Setoran nyata dihitung ulang server.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PointEstimateRequest' }
+      responses:
+        '200':
+          description: "Hasil estimasi."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PointEstimateResponse' }
+        '400':
+          description: "`invalid_request` (body tidak valid), `invalid_estimate` (item/berat/ID tidak valid atau query ada), atau `waste_not_accepted` (mitra tidak menerima material)."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: "`waste_category_not_found` atau `partner_not_found`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: "`point_rate_unavailable`: belum ada tarif aktif."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413': { $ref: '#/components/responses/BodyTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/deposits:
+    post:
+      tags: [Deposits]
+      operationId: createDeposit
+      summary: Mitra membuat setoran
+      description: |
+        Hanya mitra `active` dengan lokasi `verified`. Partner, tarif, dan total dihitung server dari mitra
+        terautentikasi (jangan kirim). **Idempotency-Key wajib** (8-128 karakter `A-Za-z0-9_-`): kunci baru per
+        percobaan, ulangi kunci yang sama saat retry -> 200 dengan setoran yang sama; kunci sama dengan isi berbeda ->
+        409. Total poin 0 ditolak. Tanpa query.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DepositCreateRequest' }
+      responses:
+        '201':
+          description: "Setoran baru dibuat."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DepositResponse' }
+        '200':
+          description: "Replay: kunci dan isi sama dengan setoran yang sudah ada."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DepositResponse' }
+        '400':
+          description: "`invalid_idempotency_key`, `invalid_request`, `invalid_estimate` (item/berat tidak valid atau query ada), `waste_not_accepted`, atau `zero_points`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: "`deposit_forbidden` (bukan mitra atau lokasi belum verified/suspended) atau `account_forbidden`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: "`waste_category_not_found` atau `account_not_found`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: "`idempotency_conflict` (kunci dipakai untuk isi berbeda) atau `point_rate_unavailable`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413': { $ref: '#/components/responses/BodyTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/deposits/{depositID}:
+    get:
+      tags: [Deposits]
+      operationId: getDeposit
+      summary: Detail setoran milik mitra
+      description: "Setoran mitra lain atau ID bukan UUID -> 404 agar ID tidak membocorkan data. Tanpa query."
+      parameters:
+        - $ref: '#/components/parameters/DepositID'
+      responses:
+        '200':
+          description: "Detail setoran."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DepositResponse' }
+        '400':
+          description: "`invalid_estimate`: ada query."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: "`deposit_not_found`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/deposits/{depositID}/qr:
+    post:
+      tags: [Deposits]
+      operationId: issueDepositQr
+      summary: Terbitkan atau terbitkan ulang QR klaim
+      description: |
+        Mitra pemilik setoran `verified`. Token hanya dikembalikan sekali; menerbitkan ulang mencabut token lama dan
+        berlaku 10 menit sejak terbit. Hitung mundur dari `expires_at - server_time`, bukan jam perangkat. Wajib
+        tampilkan `warning`. Setoran yang sudah diklaim -> 409. Tanpa body; query -> 404 `deposit_not_found`.
+      parameters:
+        - $ref: '#/components/parameters/DepositID'
+      responses:
+        '201':
+          description: "QR diterbitkan."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DepositQrResponse' }
+        '403':
+          description: "`deposit_forbidden` atau `account_forbidden`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: "`deposit_not_found` (juga untuk query) atau `account_not_found`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: "`deposit_already_claimed`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/deposit-claims/preview:
+    post:
+      tags: [Deposits]
+      operationId: previewDepositClaim
+      summary: Pratinjau klaim dari token QR
+      description: "Hanya akun `user` aktif. Tidak mengubah data. Token dikirim di body, bukan URL. Tanpa query (query -> 404 `qr_invalid`)."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClaimTokenRequest' }
+      responses:
+        '200':
+          description: "Rincian setoran yang akan diklaim."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DepositClaimPreviewResponse' }
+        '400':
+          description: "`invalid_request`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: "`claim_forbidden` (bukan user) atau `account_forbidden`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: "`qr_invalid` (format/token tidak dikenal, atau query ada) atau `account_not_found`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: "`deposit_already_claimed`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '410':
+          description: "`qr_revoked` (diganti QR baru) atau `qr_expired`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413': { $ref: '#/components/responses/BodyTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/deposit-claims:
+    post:
+      tags: [Deposits]
+      operationId: claimDeposit
+      summary: Klaim setoran dengan token QR
+      description: |
+        **Fresh auth.** Hanya akun `user` aktif. Pengklaim pertama menang (QR bearer). Retry oleh pengklaim yang
+        sama mengembalikan 200 dengan hasil sama tanpa poin ganda; klaim oleh orang lain setelahnya -> 409.
+      x-requires-fresh-auth: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClaimTokenRequest' }
+      responses:
+        '201':
+          description: "Klaim pertama berhasil."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DepositClaimResponse' }
+        '200':
+          description: "Replay oleh pengklaim yang sama."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DepositClaimResponse' }
+        '400':
+          description: "`invalid_request`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: "`claim_forbidden` (bukan user) atau `account_forbidden`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: "`qr_invalid` (juga untuk query) atau `account_not_found`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: "`deposit_already_claimed` (diklaim akun lain)."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '410':
+          description: "`qr_revoked` atau `qr_expired`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413': { $ref: '#/components/responses/BodyTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/wallet:
+    get:
+      tags: [Wallet]
+      operationId: getWallet
+      summary: Saldo dompet
+      description: "Semua akun aktif (user dan mitra memiliki dompet). Tanpa query."
+      responses:
+        '200':
+          description: "Dompet."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WalletResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/point-history:
+    get:
+      tags: [Wallet]
+      operationId: listPointHistory
+      summary: Riwayat poin (cursor)
+      description: "Urutan `created_at`, `id` menurun. `from` inklusif, `to` eksklusif, `from` harus sebelum `to`. `+` pada offset waktu harus di-encode `%2B`."
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: type
+          in: query
+          required: false
+          description: "Sumber entri ledger."
+          schema: { type: string, enum: [deposit, redemption] }
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200':
+          description: "Halaman riwayat."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PointHistoryPageResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/partner/deposits:
+    get:
+      tags: [Wallet]
+      operationId: listPartnerDeposits
+      summary: Setoran milik lokasi mitra (cursor)
+      description: "Hanya mitra dengan lokasi sendiri; tetap terbaca untuk lokasi non-verified. Identitas pengklaim tidak pernah ditampilkan."
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [created, qr_issued, claimed] }
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200':
+          description: "Halaman setoran."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PartnerDepositPageResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: "`deposit_forbidden` (bukan mitra/tanpa lokasi) atau `account_forbidden`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/deposits/{depositID}:
+    get:
+      tags: [Wallet]
+      operationId: getClaimedDeposit
+      summary: Rincian setoran yang diklaim pemanggil
+      description: "Hanya untuk pengguna yang mengklaim setoran itu; selain itu 404. Tanpa query."
+      parameters:
+        - $ref: '#/components/parameters/DepositID'
+      responses:
+        '200':
+          description: "Rincian setoran."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DepositResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404':
+          description: "`deposit_not_found` atau `account_not_found`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/home:
+    get:
+      tags: [Wallet]
+      operationId: getUserHome
+      summary: Beranda pengguna (satu snapshot)
+      description: |
+        Total all-time (`deposits_claimed`, `total_weight_kg`), klaim bulan WIB berjalan (`monthly_deposits`), tiga
+        entri ledger terbaru, misi minggu ini (`null` untuk mitra), satu mitra saran global, satu artikel terbaru,
+        dan `unread_count`. `partner` dan `article` `null` bila kosong. Memerlukan migration notifikasi (00011).
+      responses:
+        '200':
+          description: "Beranda."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserHomeResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/partner/home:
+    get:
+      tags: [Wallet]
+      operationId: getPartnerHome
+      summary: Beranda mitra
+      description: "Tersedia juga untuk lokasi non-verified (read-only) sehingga aplikasi dapat menampilkan `partner_status`."
+      responses:
+        '200':
+          description: "Beranda mitra."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PartnerHomeResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: "`deposit_forbidden` (bukan mitra/tanpa lokasi) atau `account_forbidden`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/rewards:
+    get:
+      tags: [Rewards]
+      operationId: listRewards
+      summary: Katalog reward
+      description: "Tanpa query. `available=false` berarti stok habis. Data demo."
+      responses:
+        '200':
+          description: "Daftar reward."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RewardListResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/rewards/{rewardID}:
+    get:
+      tags: [Rewards]
+      operationId: getReward
+      summary: Detail reward
+      description: "Tanpa query. ID bukan UUID -> 404."
+      parameters:
+        - $ref: '#/components/parameters/RewardID'
+      responses:
+        '200':
+          description: "Detail reward."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RewardResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: "`reward_not_found`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/rewards/{rewardID}/redeem:
+    post:
+      tags: [Rewards]
+      operationId: redeemReward
+      summary: Tukar poin dengan reward
+      description: |
+        **Fresh auth.** Hanya `user`. **Idempotency-Key wajib**; kunci sama + reward sama -> 200 voucher yang sama;
+        kunci sama untuk reward lain -> 409. Kegagalan tidak memotong poin. Voucher berlaku 7 hari, tanpa refund;
+        simulasi tanpa pencairan nyata. Tanpa body dan tanpa query.
+      x-requires-fresh-auth: true
+      parameters:
+        - $ref: '#/components/parameters/RewardID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: "Penukaran baru."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RedemptionResponse' }
+        '200':
+          description: "Replay penukaran dengan kunci yang sama."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RedemptionResponse' }
+        '400':
+          description: "`invalid_idempotency_key` atau `invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: "`redeem_forbidden` (bukan user) atau `account_forbidden`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: "`reward_not_found` atau `account_not_found`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: "`out_of_stock`, `insufficient_points`, atau `idempotency_conflict`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/vouchers:
+    get:
+      tags: [Rewards]
+      operationId: listVouchers
+      summary: Voucher milik pengguna (cursor)
+      description: '`expired` dihitung server dari `expires_at` saat dibaca.'
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [issued, used, expired] }
+      responses:
+        '200':
+          description: "Halaman voucher."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VoucherPageResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/vouchers/{voucherID}:
+    get:
+      tags: [Rewards]
+      operationId: getVoucher
+      summary: Detail voucher
+      description: "Tanpa query. Voucher milik akun lain atau ID bukan UUID -> 404."
+      parameters:
+        - $ref: '#/components/parameters/VoucherID'
+      responses:
+        '200':
+          description: "Voucher."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VoucherResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404':
+          description: "`voucher_not_found` atau `account_not_found`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/vouchers/{voucherID}/use:
+    post:
+      tags: [Rewards]
+      operationId: useVoucher
+      summary: Tandai voucher sudah dipakai
+      description: "Idempotent: voucher yang sudah dipakai mengembalikan hasil yang sama. Voucher kedaluwarsa -> 410. Tanpa body dan tanpa query."
+      parameters:
+        - $ref: '#/components/parameters/VoucherID'
+      responses:
+        '200':
+          description: "Voucher berstatus `used`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VoucherResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404':
+          description: "`voucher_not_found` atau `account_not_found`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '410':
+          description: "`voucher_expired`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/articles:
+    get:
+      tags: [Articles]
+      operationId: listArticles
+      summary: Daftar artikel (cursor)
+      description: |
+        Urutan `published_at`, `id` menurun. Parameter asing/berulang -> 400 `invalid_query`. `featured=true` hanya
+        artikel unggulan; `featured=false` sama dengan tanpa filter. Isi artikel teks biasa (bukan HTML/Markdown).
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: q
+          in: query
+          required: false
+          description: "Pencarian judul/ringkasan, case-insensitive, maksimal 100 karakter."
+          schema: { type: string, maxLength: 100 }
+        - name: category
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/ArticleCategory' }
+        - name: featured
+          in: query
+          required: false
+          description: "Boolean Go (`true`/`false`, juga `1`/`0`, `t`/`f`)."
+          schema: { type: boolean }
+      responses:
+        '200':
+          description: "Halaman artikel."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArticlePageResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/articles/{articleID}:
+    get:
+      tags: [Articles]
+      operationId: getArticle
+      summary: Detail artikel
+      description: "Tanpa query. ID bukan UUID -> 404."
+      parameters:
+        - $ref: '#/components/parameters/ArticleID'
+      responses:
+        '200':
+          description: "Artikel lengkap."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArticleResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: "`article_not_found`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/missions:
+    get:
+      tags: [Gamification]
+      operationId: listMissions
+      summary: Misi mingguan (Senin 00.00 WIB)
+      description: "Hanya `user`. Tanpa query. `period_start` adalah token periode yang dikirim saat klaim. XP bukan EcoPoints dan tidak menambah saldo."
+      responses:
+        '200':
+          description: "Misi minggu ini."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MissionListResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: "`gamification_forbidden` (bukan user) atau `account_forbidden`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/missions/{missionID}/claim:
+    post:
+      tags: [Gamification]
+      operationId: claimMission
+      summary: Klaim XP misi
+      description: |
+        Hanya `user`. Body wajib `period_start` persis dari `listMissions`. 201 = klaim pertama, 200 = replay pada
+        periode sama (tanpa XP ganda). Periode lama/masa depan -> 410 `mission_expired`; retry memakai token periode
+        yang sama. Tanpa query.
+      parameters:
+        - name: missionID
+          in: path
+          required: true
+          schema: { type: string, enum: [first_deposit, three_kilograms] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MissionClaimRequest' }
+      responses:
+        '201':
+          description: "Klaim pertama."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MissionClaimResultResponse' }
+        '200':
+          description: "Replay pada periode yang sama."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MissionClaimResultResponse' }
+        '400':
+          description: "`invalid_request` (body/period_start tidak valid) atau `invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: "`gamification_forbidden` atau `account_forbidden`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: "`mission_not_found` atau `account_not_found`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: "`mission_incomplete`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '410':
+          description: "`mission_expired`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413': { $ref: '#/components/responses/BodyTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/badges:
+    get:
+      tags: [Gamification]
+      operationId: listBadges
+      summary: Badge permanen
+      description: "Hanya `user`. Otomatis tanpa klaim; tanpa query."
+      responses:
+        '200':
+          description: "Badge."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BadgeListResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: "`gamification_forbidden` atau `account_forbidden`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/leaderboard:
+    get:
+      tags: [Gamification]
+      operationId: getLeaderboard
+      summary: Papan peringkat XP mingguan
+      description: "Hanya `user`. Hanya parameter `limit` yang diterima; nilai kosong/berulang/asing -> 400 `invalid_query`."
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: "Leaderboard."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LeaderboardResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: "`gamification_forbidden` atau `account_forbidden`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/leaderboard-visibility:
+    patch:
+      tags: [Gamification]
+      operationId: setLeaderboardVisibility
+      summary: Ikut serta atau keluar dari leaderboard
+      description: "Hanya `user`. Tanpa query."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LeaderboardVisibilityRequest' }
+      responses:
+        '200':
+          description: "Visibilitas tersimpan."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LeaderboardVisibilityResponse' }
+        '400':
+          description: "`invalid_request` (body wajib `visible` boolean) atau `invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: "`gamification_forbidden` atau `account_forbidden`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '413': { $ref: '#/components/responses/BodyTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/activity-report:
+    get:
+      tags: [Reports]
+      operationId: getActivityReport
+      summary: Laporan aktivitas setoran terklaim (JSON)
+      description: |
+        Default bulan WIB berjalan sampai sekarang. `from` dan `to` harus dikirim bersamaan, `to` setelah `from`,
+        rentang maksimal 366 hari. Pengguna diukur dari setoran yang ia klaim; mitra dari setoran lokasinya yang
+        sudah diklaim. `period.from/to` dirender WIB (`+07:00`). Rekap aktivitas, bukan bukti keuangan resmi.
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200':
+          description: "Laporan."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActivityReportResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: "`deposit_forbidden` (mitra tanpa lokasi) atau `account_forbidden`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/activity-report.pdf:
+    get:
+      tags: [Reports]
+      operationId: downloadActivityReportPdf
+      summary: Laporan aktivitas sebagai PDF
+      description: "Parameter dan aturan sama dengan `getActivityReport`. Respons sukses berupa biner PDF, jangan di-parse sebagai JSON; error tetap JSON."
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200':
+          description: "Dokumen PDF (tidak disimpan di server)."
+          headers:
+            X-Request-ID: { $ref: '#/components/headers/RequestId' }
+            Content-Disposition:
+              description: '`attachment; filename="ecosnap-activity-report-YYYYMMDD-YYYYMMDD.pdf"` (tanggal WIB).'
+              schema: { type: string }
+            Content-Length: { schema: { type: integer } }
+            X-Content-Type-Options: { schema: { type: string, enum: [nosniff] } }
+            Cache-Control: { schema: { type: string, enum: [no-store] } }
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: "`deposit_forbidden` atau `account_forbidden`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/help/faqs:
+    get:
+      tags: [Support]
+      operationId: listFaqs
+      summary: FAQ bantuan (konten demo)
+      description: "Semua akun aktif. Tanpa query."
+      responses:
+        '200':
+          description: "Daftar FAQ."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FaqListResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/support-tickets:
+    post:
+      tags: [Support]
+      operationId: createSupportTicket
+      summary: Kirim laporan masalah atau masukan
+      description: |
+        Semua akun aktif. **Idempotency-Key wajib**; retry dengan kunci dan isi sama -> 200 tiket yang sama; kunci
+        sama dengan isi berbeda -> 409. Maksimal 20 tiket belum selesai (`open`/`in_progress`) per akun -> 429.
+        Balasan manual terlihat lewat daftar/detail tiket; tidak ada email/notifikasi/lampiran/SLA. Tanpa query.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SupportTicketRequest' }
+      responses:
+        '201':
+          description: "Tiket dibuat."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SupportTicketResponse' }
+        '200':
+          description: "Replay: kunci dan isi sama."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SupportTicketResponse' }
+        '400':
+          description: "`invalid_ticket`, `invalid_idempotency_key`, `invalid_query`, atau `invalid_request` (body bukan tepat kind/subject/message)."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '409':
+          description: "`idempotency_conflict`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413': { $ref: '#/components/responses/BodyTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '429':
+          description: "`ticket_limit_reached`: terlalu banyak tiket belum selesai."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+    get:
+      tags: [Support]
+      operationId: listSupportTickets
+      summary: Tiket milik pemanggil (cursor)
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: status
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/SupportTicketStatus' }
+      responses:
+        '200':
+          description: "Halaman tiket."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SupportTicketPageResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/support-tickets/{ticketID}:
+    get:
+      tags: [Support]
+      operationId: getSupportTicket
+      summary: Detail tiket milik pemanggil
+      description: "Tiket akun lain atau ID bukan UUID -> 404. Tanpa query."
+      parameters:
+        - $ref: '#/components/parameters/TicketID'
+      responses:
+        '200':
+          description: "Tiket."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SupportTicketResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404':
+          description: "`ticket_not_found` atau `account_not_found`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/notifications:
+    get:
+      tags: [Notifications]
+      operationId: listNotifications
+      summary: Inbox notifikasi dalam aplikasi (cursor)
+      description: "Tidak ada push/email/SMS. `unread_count` adalah seluruh notifikasi belum dibaca pemanggil (tidak terpengaruh filter/cursor) dari snapshot yang sama."
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: unread
+          in: query
+          required: false
+          description: "Hanya `true` yang diterima; nilai lain -> 400."
+          schema: { type: boolean, enum: [true] }
+      responses:
+        '200':
+          description: "Halaman notifikasi."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPageResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404': { $ref: '#/components/responses/AccountNotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+  /api/v1/me/notifications/{notificationID}/read:
+    patch:
+      tags: [Notifications]
+      operationId: markNotificationRead
+      summary: Tandai notifikasi dibaca
+      description: "Tanpa body dan tanpa query. Idempotent; `seen_at` hanya diisi pertama kali. Milik akun lain atau ID tidak valid -> 404."
+      parameters:
+        - $ref: '#/components/parameters/NotificationID'
+      responses:
+        '200':
+          description: "Notifikasi."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationResponse' }
+        '400':
+          description: "`invalid_query`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/responses/AccountForbidden' }
+        '404':
+          description: "`notification_not_found` atau `account_not_found`."
+          headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '504': { $ref: '#/components/responses/RequestTimeout' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase ID token
+      description: "Firebase ID token (JWT) di header `Authorization`. Skema `Bearer` tidak peka huruf besar-kecil."
+  headers:
+    RequestId:
+      description: "ID request buatan server untuk korelasi laporan."
+      schema: { type: string, pattern: '^[0-9a-f]{32}$' }
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: "Kunci per percobaan (mis. UUID), 8-128 karakter `A-Za-z0-9_-`. Ulangi kunci yang sama saat retry."
+      schema: { type: string, minLength: 8, maxLength: 128, pattern: '^[A-Za-z0-9_-]{8,128}$' }
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: "Ukuran halaman."
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Offset:
+      name: offset
+      in: query
+      required: false
+      schema: { type: integer, minimum: 0, maximum: 10000, default: 0 }
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: "Nilai buram dari `pagination.next_cursor`; jangan diurai atau dipakai ulang dengan filter lain."
+      schema: { type: string }
+    From:
+      name: from
+      in: query
+      required: false
+      description: "Batas awal inklusif, RFC 3339 dengan zona (`Z` atau offset; encode `+` sebagai `%2B`)."
+      schema: { type: string, format: date-time }
+    To:
+      name: to
+      in: query
+      required: false
+      description: "Batas akhir eksklusif, RFC 3339 dengan zona."
+      schema: { type: string, format: date-time }
+    PartnerID:
+      name: partnerID
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    DepositID:
+      name: depositID
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    RewardID:
+      name: rewardID
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    VoucherID:
+      name: voucherID
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ArticleID:
+      name: articleID
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    TicketID:
+      name: ticketID
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    NotificationID:
+      name: notificationID
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    Unauthorized:
+      description: "`unauthorized`: Bearer token hilang, salah skema, tidak valid, kedaluwarsa, atau (fresh auth) dicabut/akun dinonaktifkan. Menyertakan `WWW-Authenticate: Bearer`."
+      headers:
+        X-Request-ID: { $ref: '#/components/headers/RequestId' }
+        WWW-Authenticate: { schema: { type: string, enum: [Bearer] } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example: { error: { code: unauthorized, message: ID token Firebase tidak valid atau sudah kedaluwarsa. } }
+    AccountNotFound:
+      description: "`account_not_found`: Firebase sudah ada tetapi profil belum dibuat (`registerAccount`)."
+      headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    AccountForbidden:
+      description: "`account_forbidden`: akun tidak aktif."
+      headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    BodyTooLarge:
+      description: "`body_too_large`: body melebihi batas (16 KiB; tiket bantuan 64 KiB)."
+      headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    UnsupportedMediaType:
+      description: "`unsupported_media_type`: gunakan `Content-Type: application/json`."
+      headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    InternalError:
+      description: "`internal_error`: kesalahan server. Operasi tulis aman diulang dengan Idempotency-Key yang sama."
+      headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    RequestTimeout:
+      description: "`request_timeout`: batas waktu request/operasi terlampaui. Periksa hasil sebelum mengulang operasi tulis, atau ulangi dengan kunci yang sama."
+      headers: { X-Request-ID: { $ref: '#/components/headers/RequestId' } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error: { $ref: '#/components/schemas/ErrorBody' }
+    ErrorBody:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: "Kode stabil untuk percabangan logika (mis. `unauthorized`, `invalid_query`, `account_not_found`, `idempotency_conflict`). Klien harus menoleransi kode baru."
+        message:
+          type: string
+          description: "Pesan berbahasa Indonesia yang boleh ditampilkan ke pengguna."
+    Timestamp:
+      type: string
+      format: date-time
+      description: "RFC 3339; boleh `Z` atau offset (mis. `+07:00`)."
+    NullableTimestamp:
+      type: string
+      format: date-time
+      nullable: true
+      description: "RFC 3339 atau `null`."
+    WeightKg:
+      type: string
+      pattern: '^[0-9]+\.[0-9]{3}$'
+      description: "Berat kilogram desimal bertitik, tepat 3 desimal (mis. `\"2.500\"`)."
+    CursorPagination:
+      type: object
+      required: [limit, next_cursor]
+      properties:
+        limit: { type: integer }
+        next_cursor:
+          type: string
+          nullable: true
+          description: '`null` berarti halaman terakhir.'
+    OffsetPagination:
+      type: object
+      required: [limit, offset, has_more]
+      properties:
+        limit: { type: integer }
+        offset: { type: integer }
+        has_more: { type: boolean }
+    HealthStatus:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ok] }
+    Identity:
+      type: object
+      required: [uid, email, email_verified]
+      properties:
+        uid: { type: string }
+        email: { type: string, description: "Kosong bila token tanpa email." }
+        email_verified: { type: boolean }
+    IdentityResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Identity' }
+    AccountRole:
+      type: string
+      enum: [user, mitra]
+    AccountRegistrationRequest:
+      type: object
+      additionalProperties: false
+      required: [role, full_name, phone]
+      properties:
+        role: { $ref: '#/components/schemas/AccountRole' }
+        full_name: { type: string, minLength: 1, maxLength: 150, description: "Setelah trim." }
+        phone: { type: string, pattern: '^\+?[0-9]{9,15}$', description: "9-15 digit dengan `+` opsional di depan." }
+        business_name: { type: string, minLength: 0, maxLength: 150, description: "Wajib (1-150) untuk `mitra`; harus kosong/dihilangkan untuk `user`." }
+        business_category: { type: string, minLength: 0, maxLength: 80, description: "Wajib (1-80) untuk `mitra`; harus kosong/dihilangkan untuk `user`." }
+    AccountProfileUpdateRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        full_name: { type: string, minLength: 1, maxLength: 150 }
+        phone: { type: string, pattern: '^\+?[0-9]{9,15}$' }
+    AccountSettingsUpdateRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        notification_enabled: { type: boolean }
+        onboarding_completed: { type: boolean }
+    WalletSummary:
+      type: object
+      required: [balance, total_earned, total_spent]
+      properties:
+        balance: { type: integer, format: int64 }
+        total_earned: { type: integer, format: int64 }
+        total_spent: { type: integer, format: int64 }
+    AccountSettings:
+      type: object
+      required: [notification_enabled, show_on_leaderboard, onboarding_completed]
+      properties:
+        notification_enabled: { type: boolean }
+        show_on_leaderboard: { type: boolean }
+        onboarding_completed: { type: boolean }
+    AccountSettingsResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/AccountSettings' }
+    BusinessRegistration:
+      type: object
+      required: [name, category, status]
+      properties:
+        name: { type: string }
+        category: { type: string }
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+          description: "Status pendaftaran bisnis; `pending` menunggu persetujuan manual pemilik repo."
+    AccountProfile:
+      type: object
+      required: [uid, role, full_name, display_name, email, phone, status, created_at, wallet, settings]
+      properties:
+        uid: { type: string, description: "UID Firebase." }
+        role: { $ref: '#/components/schemas/AccountRole' }
+        full_name: { type: string }
+        display_name: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        status: { type: string, enum: [active, suspended, deleted] }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        wallet: { $ref: '#/components/schemas/WalletSummary' }
+        settings: { $ref: '#/components/schemas/AccountSettings' }
+        business:
+          $ref: '#/components/schemas/BusinessRegistration'
+    AccountProfileResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/AccountProfile' }
+    WasteCategory:
+      type: object
+      required: [id, name, slug, code, handling_guide, requires_special_handling]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        code: { type: string, description: 'Mis. `PLASTIC`, `PAPER`, `METAL`, `GLASS`; kategori baru mungkin muncul.' }
+        handling_guide: { type: string }
+        requires_special_handling: { type: boolean }
+    WasteCategoryListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/WasteCategory' }
+    PartnerLocation:
+      type: object
+      required: [latitude, longitude]
+      properties:
+        latitude: { type: number, format: double }
+        longitude: { type: number, format: double }
+    PartnerHour:
+      type: object
+      required: [day_of_week, opens_at, closes_at, is_closed]
+      properties:
+        day_of_week: { type: integer, minimum: 0, maximum: 6, description: "0=Minggu ... 6=Sabtu." }
+        opens_at: { type: string, description: '`HH:MM`, string kosong bila tutup.' }
+        closes_at: { type: string, description: '`HH:MM`, string kosong bila tutup.' }
+        is_closed: { type: boolean }
+    PartnerDetail:
+      type: object
+      required: [id, name, area, address, phone, opening_hours, description, location, accepted_materials, hours]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        area: { type: string }
+        address: { type: string }
+        phone: { type: string }
+        opening_hours: { type: string, description: "Ringkasan teks jam buka." }
+        description: { type: string }
+        location: { $ref: '#/components/schemas/PartnerLocation' }
+        accepted_materials:
+          type: array
+          items: { $ref: '#/components/schemas/WasteCategory' }
+        hours:
+          type: array
+          items: { $ref: '#/components/schemas/PartnerHour' }
+    PartnerDetailResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/PartnerDetail' }
+    PartnerPageResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/PartnerDetail' }
+        pagination: { $ref: '#/components/schemas/OffsetPagination' }
+    FavoritePartner:
+      type: object
+      required: [partner_id, created_at]
+      properties:
+        partner_id: { type: string, format: uuid }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+    FavoritePageResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/FavoritePartner' }
+        pagination: { $ref: '#/components/schemas/OffsetPagination' }
+    PointEstimateInput:
+      type: object
+      additionalProperties: false
+      required: [category_id, weight_kg]
+      properties:
+        category_id: { type: string, format: uuid }
+        weight_kg:
+          type: string
+          pattern: '^[0-9]{1,4}(\.[0-9]{1,3})?$'
+          description: "String desimal bertitik, maksimal 3 desimal, nilai 0.001-1000.000 (jangan angka JSON, koma, atau notasi ilmiah)."
+    PointEstimateRequest:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        partner_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "Opsional; bila diisi, material harus diterima mitra tersebut."
+        items:
+          type: array
+          minItems: 1
+          maxItems: 50
+          description: "Kategori tidak boleh ganda; total berat maksimal 1000 kg."
+          items: { $ref: '#/components/schemas/PointEstimateInput' }
+    PointEstimateItem:
+      type: object
+      required: [category_id, category_name, weight_kg, rate_id, points_per_kg, exact_points, is_demo]
+      properties:
+        category_id: { type: string, format: uuid }
+        category_name: { type: string }
+        weight_kg: { $ref: '#/components/schemas/WeightKg' }
+        rate_id: { type: string, format: uuid }
+        points_per_kg: { type: string, pattern: '^[0-9]+\.[0-9]{2}$', description: "Tarif poin per kg, 2 desimal." }
+        exact_points: { type: string, pattern: '^[0-9]+\.[0-9]{5}$', description: "Hasil kali eksak sebelum pembulatan, 5 desimal." }
+        is_demo: { type: boolean, description: "Tarif contoh (demo)." }
+    PointEstimate:
+      type: object
+      required: [as_of, total_weight_kg, estimated_points, uses_demo_rates, items]
+      properties:
+        partner_id:
+          type: string
+          format: uuid
+          description: "Hanya ada bila request menyertakan `partner_id`."
+        as_of: { $ref: '#/components/schemas/Timestamp' }
+        total_weight_kg: { $ref: '#/components/schemas/WeightKg' }
+        estimated_points: { type: integer, format: int64 }
+        uses_demo_rates: { type: boolean }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/PointEstimateItem' }
+    PointEstimateResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/PointEstimate' }
+    DepositCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 50
+          description: "Hanya material terukur; mitra, tarif, dan total dihitung server."
+          items: { $ref: '#/components/schemas/PointEstimateInput' }
+    DepositStatus:
+      type: string
+      enum: [created, qr_issued, claimed]
+    Deposit:
+      type: object
+      required: [id, partner_id, status, total_weight_kg, total_points, uses_demo_rates, rates_as_of, created_at, items]
+      properties:
+        id: { type: string, format: uuid }
+        partner_id: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/DepositStatus' }
+        total_weight_kg: { $ref: '#/components/schemas/WeightKg' }
+        total_points: { type: integer, format: int64 }
+        uses_demo_rates: { type: boolean }
+        rates_as_of: { $ref: '#/components/schemas/Timestamp' }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/PointEstimateItem' }
+    DepositResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Deposit' }
+    DepositQr:
+      type: object
+      required: [deposit_id, token, issued_at, expires_at, server_time, warning]
+      properties:
+        deposit_id: { type: string, format: uuid }
+        token: { type: string, pattern: '^[A-Za-z0-9_-]{43}$', description: "Token bearer 43 karakter base64url; hanya dikembalikan sekali, encode apa adanya sebagai QR." }
+        issued_at: { $ref: '#/components/schemas/Timestamp' }
+        expires_at: { $ref: '#/components/schemas/Timestamp' }
+        server_time: { $ref: '#/components/schemas/Timestamp' }
+        warning: { type: string, description: "Teks peringatan bearer yang wajib ditampilkan di layar QR." }
+    DepositQrResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/DepositQr' }
+    ClaimTokenRequest:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token: { type: string, pattern: '^[A-Za-z0-9_-]{43}$' }
+    DepositClaimPreview:
+      type: object
+      required: [deposit_id, partner_id, partner_name, total_weight_kg, total_points, uses_demo_rates, expires_at, server_time, items]
+      properties:
+        deposit_id: { type: string, format: uuid }
+        partner_id: { type: string, format: uuid }
+        partner_name: { type: string }
+        total_weight_kg: { $ref: '#/components/schemas/WeightKg' }
+        total_points: { type: integer, format: int64 }
+        uses_demo_rates: { type: boolean }
+        expires_at: { $ref: '#/components/schemas/Timestamp' }
+        server_time: { $ref: '#/components/schemas/Timestamp' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/PointEstimateItem' }
+    DepositClaimPreviewResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/DepositClaimPreview' }
+    DepositClaim:
+      type: object
+      required: [deposit_id, partner_id, points, claimed_at, wallet_balance]
+      properties:
+        deposit_id: { type: string, format: uuid }
+        partner_id: { type: string, format: uuid }
+        points: { type: integer, format: int64 }
+        claimed_at: { $ref: '#/components/schemas/Timestamp' }
+        wallet_balance: { type: integer, format: int64 }
+    DepositClaimResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/DepositClaim' }
+    Wallet:
+      type: object
+      required: [balance, total_earned, total_spent, updated_at]
+      properties:
+        balance: { type: integer, format: int64 }
+        total_earned: { type: integer, format: int64 }
+        total_spent: { type: integer, format: int64 }
+        updated_at: { $ref: '#/components/schemas/Timestamp' }
+    WalletResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Wallet' }
+    PointHistoryDeposit:
+      type: object
+      required: [id, partner_id, partner_name, total_weight_kg]
+      properties:
+        id: { type: string, format: uuid }
+        partner_id: { type: string, format: uuid }
+        partner_name: { type: string }
+        total_weight_kg: { $ref: '#/components/schemas/WeightKg' }
+    PointHistoryRedemption:
+      type: object
+      required: [id, reward_name]
+      properties:
+        id: { type: string, format: uuid }
+        reward_name: { type: string }
+    PointHistoryEntry:
+      type: object
+      required: [id, amount, source, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        amount: { type: integer, format: int64, description: "Bertanda; kredit positif, penukaran negatif." }
+        source: { type: string, enum: [deposit, redemption] }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        deposit:
+          $ref: '#/components/schemas/PointHistoryDeposit'
+        redemption:
+          $ref: '#/components/schemas/PointHistoryRedemption'
+    PointHistoryPageResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/PointHistoryEntry' }
+        pagination: { $ref: '#/components/schemas/CursorPagination' }
+    PartnerDepositSummary:
+      type: object
+      required: [id, status, total_weight_kg, total_points, uses_demo_rates, created_at, claimed_at]
+      properties:
+        id: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/DepositStatus' }
+        total_weight_kg: { $ref: '#/components/schemas/WeightKg' }
+        total_points: { type: integer, format: int64 }
+        uses_demo_rates: { type: boolean }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        claimed_at: { $ref: '#/components/schemas/NullableTimestamp' }
+    PartnerDepositPageResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/PartnerDepositSummary' }
+        pagination: { $ref: '#/components/schemas/CursorPagination' }
+    HomeMonth:
+      type: object
+      required: [from, to, timezone]
+      properties:
+        from: { $ref: '#/components/schemas/Timestamp' }
+        to: { $ref: '#/components/schemas/Timestamp' }
+        timezone: { type: string, description: "Selalu `Asia/Jakarta`." }
+    UserHome:
+      type: object
+      required: [user_name, server_time, month, wallet, deposits_claimed, monthly_deposits, total_weight_kg, active_vouchers, recent_activity, missions, partner, article, unread_count]
+      properties:
+        user_name: { type: string }
+        server_time: { $ref: '#/components/schemas/Timestamp' }
+        month: { $ref: '#/components/schemas/HomeMonth' }
+        wallet: { $ref: '#/components/schemas/Wallet' }
+        deposits_claimed: { type: integer, format: int64, description: "All-time." }
+        monthly_deposits: { type: integer, format: int64, description: "Klaim dalam `month`." }
+        total_weight_kg: { $ref: '#/components/schemas/WeightKg' }
+        active_vouchers: { type: integer, format: int64 }
+        recent_activity:
+          type: array
+          description: "Maksimal 3 entri ledger terbaru."
+          items: { $ref: '#/components/schemas/PointHistoryEntry' }
+        missions:
+          type: object
+          nullable: true
+          description: '`null` untuk mitra.'
+          required: [period_start, period_end, server_time, weekly_xp, total_xp, missions]
+          properties:
+            period_start: { $ref: '#/components/schemas/Timestamp' }
+            period_end: { $ref: '#/components/schemas/Timestamp' }
+            server_time: { $ref: '#/components/schemas/Timestamp' }
+            weekly_xp: { type: integer, format: int64 }
+            total_xp: { type: integer, format: int64 }
+            missions:
+              type: array
+              items: { $ref: '#/components/schemas/Mission' }
+        partner:
+          type: object
+          nullable: true
+          description: "Satu mitra saran global (bukan terdekat); `null` bila tidak ada."
+          required: [id, name, area, address, phone, opening_hours, description, location, accepted_materials, hours]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+            area: { type: string }
+            address: { type: string }
+            phone: { type: string }
+            opening_hours: { type: string }
+            description: { type: string }
+            location: { $ref: '#/components/schemas/PartnerLocation' }
+            accepted_materials:
+              type: array
+              items: { $ref: '#/components/schemas/WasteCategory' }
+            hours:
+              type: array
+              items: { $ref: '#/components/schemas/PartnerHour' }
+        article:
+          type: object
+          nullable: true
+          description: "Satu artikel terbaru; `null` bila tidak ada."
+          required: [id, title, summary, category, reading_minutes, is_featured, is_demo, published_at]
+          properties:
+            id: { type: string, format: uuid }
+            title: { type: string }
+            summary: { type: string }
+            category: { $ref: '#/components/schemas/ArticleCategory' }
+            reading_minutes: { type: integer }
+            is_featured: { type: boolean }
+            is_demo: { type: boolean }
+            published_at: { $ref: '#/components/schemas/Timestamp' }
+        unread_count: { type: integer, format: int64 }
+    UserHomeResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/UserHome' }
+    PartnerStatus:
+      type: string
+      enum: [pending, verified, rejected, suspended]
+    PartnerDepositCounts:
+      type: object
+      required: [created, qr_issued, claimed]
+      properties:
+        created: { type: integer, format: int64 }
+        qr_issued: { type: integer, format: int64 }
+        claimed: { type: integer, format: int64 }
+    PartnerHome:
+      type: object
+      required: [partner_id, business_name, partner_status, deposits, claimed_weight_kg, claimed_points, recent_deposits]
+      properties:
+        partner_id: { type: string, format: uuid }
+        business_name: { type: string }
+        partner_status: { $ref: '#/components/schemas/PartnerStatus' }
+        deposits: { $ref: '#/components/schemas/PartnerDepositCounts' }
+        claimed_weight_kg: { $ref: '#/components/schemas/WeightKg' }
+        claimed_points: { type: integer, format: int64 }
+        recent_deposits:
+          type: array
+          description: "Maksimal 3 setoran terbaru."
+          items: { $ref: '#/components/schemas/PartnerDepositSummary' }
+    PartnerHomeResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/PartnerHome' }
+    Reward:
+      type: object
+      required: [id, name, description, terms, cost_points, stock, available, is_demo]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        terms: { type: string }
+        cost_points: { type: integer, format: int64 }
+        stock: { type: integer, format: int64 }
+        available: { type: boolean, description: '`false` berarti stok habis.' }
+        is_demo: { type: boolean }
+    RewardListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Reward' }
+    RewardResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Reward' }
+    Voucher:
+      type: object
+      required: [id, reward_id, reward_name, cost_points, code, status, created_at, expires_at, used_at]
+      properties:
+        id: { type: string, format: uuid }
+        reward_id: { type: string, format: uuid }
+        reward_name: { type: string }
+        cost_points: { type: integer, format: int64 }
+        code: { type: string, description: 'Format `ECO-XXXX-XXXX`; simulasi.' }
+        status: { type: string, enum: [issued, used, expired], description: '`expired` dihitung dari `expires_at` saat dibaca.' }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        expires_at: { $ref: '#/components/schemas/Timestamp' }
+        used_at: { $ref: '#/components/schemas/NullableTimestamp' }
+    VoucherResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Voucher' }
+    VoucherPageResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Voucher' }
+        pagination: { $ref: '#/components/schemas/CursorPagination' }
+    Redemption:
+      type: object
+      required: [voucher, wallet_balance]
+      properties:
+        voucher: { $ref: '#/components/schemas/Voucher' }
+        wallet_balance: { type: integer, format: int64 }
+    RedemptionResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Redemption' }
+    ArticleCategory:
+      type: string
+      enum: [GUIDE, SORTING, RECYCLING, SPECIAL_WASTE, NEWS]
+    ArticleSummary:
+      type: object
+      required: [id, title, summary, category, reading_minutes, is_featured, is_demo, published_at]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        summary: { type: string }
+        category: { $ref: '#/components/schemas/ArticleCategory' }
+        reading_minutes: { type: integer }
+        is_featured: { type: boolean }
+        is_demo: { type: boolean }
+        published_at: { $ref: '#/components/schemas/Timestamp' }
+    ArticleSection:
+      type: object
+      required: [title, body]
+      properties:
+        title: { type: string }
+        body: { type: string, description: "Teks biasa (bukan HTML/Markdown)." }
+    Article:
+      type: object
+      required: [id, title, summary, category, reading_minutes, is_featured, is_demo, published_at, introduction, sections, tip]
+      description: "Semua field `ArticleSummary` (diratakan) ditambah isi artikel."
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        summary: { type: string }
+        category: { $ref: '#/components/schemas/ArticleCategory' }
+        reading_minutes: { type: integer }
+        is_featured: { type: boolean }
+        is_demo: { type: boolean }
+        published_at: { $ref: '#/components/schemas/Timestamp' }
+        introduction: { type: string }
+        sections:
+          type: array
+          items: { $ref: '#/components/schemas/ArticleSection' }
+        tip: { type: string }
+    ArticleResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Article' }
+    ArticlePageResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ArticleSummary' }
+        pagination: { $ref: '#/components/schemas/CursorPagination' }
+    MissionStatus:
+      type: string
+      enum: [in_progress, claimable, claimed]
+    Mission:
+      type: object
+      required: [id, title, description, metric, unit, target, progress, reward_xp, status, claimed_at]
+      properties:
+        id: { type: string, description: 'ID stabil, mis. `first_deposit`, `three_kilograms`.' }
+        title: { type: string }
+        description: { type: string }
+        metric: { type: string, enum: [claimed_deposit_count, claimed_weight_grams] }
+        unit: { type: string, enum: [deposit, gram] }
+        target: { type: integer, format: int64 }
+        progress: { type: integer, format: int64 }
+        reward_xp: { type: integer, format: int64 }
+        status: { $ref: '#/components/schemas/MissionStatus' }
+        claimed_at: { $ref: '#/components/schemas/NullableTimestamp' }
+    MissionList:
+      type: object
+      required: [period_start, period_end, server_time, weekly_xp, total_xp, missions]
+      properties:
+        period_start: { $ref: '#/components/schemas/Timestamp' }
+        period_end: { $ref: '#/components/schemas/Timestamp' }
+        server_time: { $ref: '#/components/schemas/Timestamp' }
+        weekly_xp: { type: integer, format: int64 }
+        total_xp: { type: integer, format: int64 }
+        missions:
+          type: array
+          items: { $ref: '#/components/schemas/Mission' }
+    MissionListResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/MissionList' }
+    MissionClaimRequest:
+      type: object
+      additionalProperties: false
+      required: [period_start]
+      properties:
+        period_start: { type: string, format: date-time, description: '`period_start` persis dari `listMissions`.' }
+    MissionClaimResult:
+      type: object
+      required: [mission, xp_awarded, weekly_xp, total_xp, period_start, period_end, server_time]
+      properties:
+        mission: { $ref: '#/components/schemas/Mission' }
+        xp_awarded: { type: integer, format: int64 }
+        weekly_xp: { type: integer, format: int64 }
+        total_xp: { type: integer, format: int64 }
+        period_start: { $ref: '#/components/schemas/Timestamp' }
+        period_end: { $ref: '#/components/schemas/Timestamp' }
+        server_time: { $ref: '#/components/schemas/Timestamp' }
+    MissionClaimResultResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/MissionClaimResult' }
+    Badge:
+      type: object
+      required: [id, title, description, metric, target, progress, earned, unlocked_at]
+      properties:
+        id: { type: string, description: 'Mis. `deposit_1`, `deposit_10`, `weight_10kg`.' }
+        title: { type: string }
+        description: { type: string }
+        metric: { type: string, enum: [claimed_deposit_count, claimed_weight_grams] }
+        target: { type: integer, format: int64 }
+        progress: { type: integer, format: int64 }
+        earned: { type: boolean }
+        unlocked_at: { $ref: '#/components/schemas/NullableTimestamp' }
+    BadgeList:
+      type: object
+      required: [server_time, claimed_deposits, claimed_weight_grams, badges]
+      properties:
+        server_time: { $ref: '#/components/schemas/Timestamp' }
+        claimed_deposits: { type: integer, format: int64 }
+        claimed_weight_grams: { type: integer, format: int64 }
+        badges:
+          type: array
+          items: { $ref: '#/components/schemas/Badge' }
+    BadgeListResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/BadgeList' }
+    LeaderboardEntry:
+      type: object
+      required: [rank, display_name, photo_path, xp]
+      properties:
+        rank: { type: integer, format: int64 }
+        display_name: { type: string }
+        photo_path: { type: string, nullable: true }
+        xp: { type: integer, format: int64 }
+    LeaderboardMe:
+      type: object
+      required: [rank, xp]
+      properties:
+        rank: { type: integer, format: int64 }
+        xp: { type: integer, format: int64 }
+    Leaderboard:
+      type: object
+      required: [period_start, period_end, server_time, limit, entries, me]
+      properties:
+        period_start: { $ref: '#/components/schemas/Timestamp' }
+        period_end: { $ref: '#/components/schemas/Timestamp' }
+        server_time: { $ref: '#/components/schemas/Timestamp' }
+        limit: { type: integer }
+        entries:
+          type: array
+          items: { $ref: '#/components/schemas/LeaderboardEntry' }
+        me:
+          type: object
+          nullable: true
+          description: '`null` bila pemanggil belum berperingkat atau memilih tidak tampil.'
+          required: [rank, xp]
+          properties:
+            rank: { type: integer, format: int64 }
+            xp: { type: integer, format: int64 }
+    LeaderboardResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Leaderboard' }
+    LeaderboardVisibilityRequest:
+      type: object
+      additionalProperties: false
+      required: [visible]
+      properties:
+        visible: { type: boolean }
+    LeaderboardVisibility:
+      type: object
+      required: [visible]
+      properties:
+        visible: { type: boolean }
+    LeaderboardVisibilityResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/LeaderboardVisibility' }
+    ActivityReportAccount:
+      type: object
+      required: [role, full_name]
+      properties:
+        role: { $ref: '#/components/schemas/AccountRole' }
+        full_name: { type: string }
+        business_name: { type: string, description: "Hanya ada untuk mitra." }
+    ActivityReportPeriod:
+      type: object
+      required: [from, to, timezone, days]
+      properties:
+        from: { $ref: '#/components/schemas/Timestamp' }
+        to: { $ref: '#/components/schemas/Timestamp' }
+        timezone: { type: string, description: "Selalu `Asia/Jakarta`." }
+        days: { type: integer }
+    ActivityReportTotals:
+      type: object
+      required: [claimed_deposits, total_weight_grams, total_weight_kg]
+      description: '`points_earned` dan `points_spent` hanya untuk user; `points_credited` hanya untuk mitra.'
+      properties:
+        claimed_deposits: { type: integer, format: int64 }
+        total_weight_grams: { type: integer, format: int64 }
+        total_weight_kg: { $ref: '#/components/schemas/WeightKg' }
+        points_earned: { type: integer, format: int64 }
+        points_credited: { type: integer, format: int64 }
+        points_spent: { type: integer, format: int64, description: "Bilangan positif." }
+    ActivityReportDay:
+      type: object
+      required: [date, claimed_deposits, total_weight_grams, total_weight_kg]
+      properties:
+        date: { type: string, format: date, description: "Tanggal kalender WIB." }
+        claimed_deposits: { type: integer, format: int64 }
+        total_weight_grams: { type: integer, format: int64 }
+        total_weight_kg: { $ref: '#/components/schemas/WeightKg' }
+        points_earned: { type: integer, format: int64 }
+        points_credited: { type: integer, format: int64 }
+        points_spent: { type: integer, format: int64 }
+    ActivityReportCategory:
+      type: object
+      required: [category_id, category_name, deposit_count, total_weight_grams, total_weight_kg]
+      properties:
+        category_id: { type: string, format: uuid }
+        category_name: { type: string }
+        deposit_count: { type: integer, format: int64 }
+        total_weight_grams: { type: integer, format: int64 }
+        total_weight_kg: { $ref: '#/components/schemas/WeightKg' }
+    ActivityReport:
+      type: object
+      required: [account, period, generated_at, totals, daily, categories]
+      properties:
+        account: { $ref: '#/components/schemas/ActivityReportAccount' }
+        period: { $ref: '#/components/schemas/ActivityReportPeriod' }
+        generated_at: { $ref: '#/components/schemas/Timestamp' }
+        totals: { $ref: '#/components/schemas/ActivityReportTotals' }
+        daily:
+          type: array
+          description: "Satu entri per tanggal WIB dalam rentang (diisi nol); hari pertama/terakhir bisa parsial."
+          items: { $ref: '#/components/schemas/ActivityReportDay' }
+        categories:
+          type: array
+          items: { $ref: '#/components/schemas/ActivityReportCategory' }
+    ActivityReportResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/ActivityReport' }
+    Faq:
+      type: object
+      required: [id, category, question, answer, is_demo]
+      properties:
+        id: { type: string, description: "Slug stabil (bukan UUID), mis. `qr-setoran`." }
+        category: { type: string }
+        question: { type: string }
+        answer: { type: string }
+        is_demo: { type: boolean }
+    FaqListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Faq' }
+    SupportTicketStatus:
+      type: string
+      enum: [open, in_progress, resolved]
+    SupportTicketRequest:
+      type: object
+      additionalProperties: false
+      required: [kind, subject, message]
+      properties:
+        kind: { type: string, enum: [problem, feedback] }
+        subject: { type: string, minLength: 1, maxLength: 150, description: "Setelah trim; tanpa karakter kontrol." }
+        message: { type: string, minLength: 1, maxLength: 4000, description: "Setelah trim; baris baru dan tab diperbolehkan." }
+    SupportTicket:
+      type: object
+      required: [id, kind, subject, message, status, staff_response, responded_at, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [problem, feedback] }
+        subject: { type: string }
+        message: { type: string }
+        status: { $ref: '#/components/schemas/SupportTicketStatus' }
+        staff_response: { type: string, nullable: true, description: "Balasan manual pengelola; `null` sampai dibalas." }
+        responded_at: { $ref: '#/components/schemas/NullableTimestamp' }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        updated_at: { $ref: '#/components/schemas/Timestamp' }
+    SupportTicketResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/SupportTicket' }
+    SupportTicketPageResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/SupportTicket' }
+        pagination: { $ref: '#/components/schemas/CursorPagination' }
+    NotificationTarget:
+      type: object
+      required: [type, id]
+      properties:
+        type: { type: string, enum: [deposit, voucher, mission] }
+        id: { type: string, description: "UUID setoran/voucher, atau ID misi." }
+    Notification:
+      type: object
+      required: [id, type, title, body, target, created_at, seen_at]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [deposit_credited, deposit_claimed, voucher_issued, mission_xp_claimed] }
+        title: { type: string }
+        body: { type: string }
+        target: { $ref: '#/components/schemas/NotificationTarget' }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        seen_at: { $ref: '#/components/schemas/NullableTimestamp' }
+    NotificationResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Notification' }
+    NotificationPageResponse:
+      type: object
+      required: [data, unread_count, pagination]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Notification' }
+        unread_count: { type: integer, format: int64 }
+        pagination: { $ref: '#/components/schemas/CursorPagination' }
