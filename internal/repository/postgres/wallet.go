@@ -48,8 +48,14 @@ func (r *WalletRepository) PointHistory(ctx context.Context, uid string, f servi
 	if err = favoriteAccount(ctx, tx, uid); err != nil {
 		return nil, err
 	}
+	return pointHistoryTx(ctx, tx, uid, f, limit, after)
+}
+
+// pointHistoryTx lists ledger entries newest first; shared by the history
+// endpoint and the home card so both read the same rows the same way.
+func pointHistoryTx(ctx context.Context, q rowQuerier, uid string, f service.HistoryFilter, limit int, after *service.Cursor) ([]entity.PointHistoryEntry, error) {
 	at, id := cursorArgs(after)
-	rows, err := tx.Query(ctx, `SELECT l.id::text,l.amount,l.source::text,l.created_at,d.id::text,d.partner_id::text,p.business_name,d.total_weight_grams,rd.id::text,rd.reward_name
+	rows, err := q.Query(ctx, `SELECT l.id::text,l.amount,l.source::text,l.created_at,d.id::text,d.partner_id::text,p.business_name,d.total_weight_grams,rd.id::text,rd.reward_name
  FROM public.point_ledger l LEFT JOIN public.deposits d ON d.id=l.deposit_id LEFT JOIN public.partners p ON p.id=d.partner_id
  LEFT JOIN public.redemptions rd ON rd.id=l.redemption_id
  WHERE l.user_uid=$1 AND ($2::timestamptz IS NULL OR (l.created_at,l.id)<($2,$3::uuid))

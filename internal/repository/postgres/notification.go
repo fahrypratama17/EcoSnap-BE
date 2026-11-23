@@ -55,11 +55,18 @@ func (r *NotificationRepository) List(ctx context.Context, uid string, unreadOnl
 		return nil, 0, err
 	}
 	rows.Close()
-	var unread int64
-	if err = tx.QueryRow(ctx, `SELECT count(*) FROM public.notifications WHERE recipient_uid=$1 AND seen_at IS NULL`, uid).Scan(&unread); err != nil {
+	unread, err := unreadCountTx(ctx, tx, uid)
+	if err != nil {
 		return nil, 0, err
 	}
 	return out, unread, nil
+}
+
+// unreadCountTx is the caller's total unread notifications, whatever the page.
+func unreadCountTx(ctx context.Context, q rowQuerier, uid string) (int64, error) {
+	var unread int64
+	err := q.QueryRow(ctx, `SELECT count(*) FROM public.notifications WHERE recipient_uid=$1 AND seen_at IS NULL`, uid).Scan(&unread)
+	return unread, err
 }
 
 func (r *NotificationRepository) MarkRead(ctx context.Context, uid, id string) (entity.Notification, error) {

@@ -1,6 +1,6 @@
 # Kontrak misi, badge, dan leaderboard
 
-Status: **kode ada (ADA KODE)** pada branch lokal `dev` menurut D-24 dan D-25; tes PostgreSQL dan HTTP terarah lulus tanpa SKIP ([bukti](../test-results/gamification-2026-11-21.md)). Pemilik melaporkan migration `00001`–`00010` Applied di Supabase development pada 2026-11-21 pukul 17:37. Integrasi Android dan Firebase nyata untuk endpoint gamifikasi belum diuji.
+Status: **kode ada (ADA KODE)** pada branch lokal `dev` menurut D-24 dan D-25; tes PostgreSQL dan HTTP terarah lulus tanpa SKIP ([bukti](../test-results/gamification-2026-11-21.md)). Pemilik melaporkan migration `00001`–`00010` Applied di Supabase development pada 2026-11-21 pukul 17:37 dan smoke 57 lulus dengan Firebase nyata (cakupan per endpoint: lihat laporan bukti). Integrasi Android belum ada. Notifikasi `mission_xp_claimed` (inbox, migration 00011) dan kartu misi pada `GET /me/home` ditambahkan sesudah smoke tersebut dan belum diuji dengan Firebase/Supabase nyata. Urutan pemakaian di Android: [android-integration.md](android-integration.md#29-misi-badge-leaderboard).
 
 ## Aturan (D-24, D-25)
 
@@ -10,7 +10,7 @@ Status: **kode ada (ADA KODE)** pada branch lokal `dev` menurut D-24 dan D-25; t
 - **Klaim manual, satu kali per misi per minggu.** Hadiah yang belum diklaim hangus saat periode berakhir. Tampilkan `period_end` sebagai tanggal berakhir.
 - **Badge permanen**, diturunkan langsung dari klaim setoran all-time yang tidak dapat diubah, tanpa klaim dan tanpa bonus.
 - **Leaderboard:** XP mingguan; hanya user aktif yang opt-in; hanya `display_name` dan `photo_path`; mitra tidak ikut; tanpa hadiah EcoPoints.
-- Semua endpoint memerlukan Bearer token. Respons `{"data": …}`; error `{"error":{"code","message"}}`. Query/body asing → 400.
+- Semua endpoint memerlukan Bearer token. Respons `{"data": …}`; error `{"error":{"code","message"}}`. Query/body asing → 400. Seluruh endpoint di dokumen ini (termasuk membaca misi, badge, dan leaderboard) hanya untuk akun `user` active; mitra menerima 403 `gamification_forbidden`.
 
 ## GET /api/v1/me/missions
 
@@ -117,3 +117,4 @@ Migration `database/migrations/00010_create_gamification.sql`: tabel `mission_cl
 - `LocalLeaderboard` memberi peringkat berurutan tanpa seri dan tidak punya foto. Pakai `rank` dari server (seri berperingkat sama) dan `photo_path` (boleh `null`).
 - Game tetap ditunda (D-24), bukan dihapus: jangan menampilkan XP atau progres game palsu, dan jangan menambah XP dari sisi klien.
 - Pengaturan visibilitas kini tersedia: `PATCH /api/v1/me/leaderboard-visibility` (body `{"visible":true|false}`); lihat kontrak di atas. Default `true`.
+- Beranda: `GET /me/home` memuat objek `missions` yang identik dengan respons `GET /me/missions` (katalog, `status`, `reward_xp`, `period_start`, `server_time`); `null` untuk mitra. Server tidak memilih satu misi untuk ditampilkan: FE memilih dari `missions.missions[]`. Klaim tetap lewat endpoint klaim di atas dengan `period_start` dari objek yang sama.

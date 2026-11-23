@@ -58,7 +58,8 @@ type WalletStore interface {
 	PartnerDeposits(ctx context.Context, uid string, f HistoryFilter, limit int, after *Cursor) ([]entity.PartnerDepositSummary, error)
 	// ClaimedDeposit returns a deposit only to the user who claimed it.
 	ClaimedDeposit(ctx context.Context, uid, depositID string) (DepositRecord, error)
-	// UserHome and PartnerHome fill the totals; recent lists come from the
+	// UserHome reads every home card in one snapshot, including the recent
+	// ledger entries; PartnerHome fills totals and recent lists come from the
 	// history queries.
 	UserHome(ctx context.Context, uid string) (entity.UserHome, error)
 	PartnerHome(ctx context.Context, uid string) (entity.PartnerHome, error)
@@ -166,15 +167,12 @@ func (s *WalletService) ClaimedDeposit(ctx context.Context, uid, depositID strin
 	return depositView(rec), nil
 }
 
-const homeRecent = 3
+// HomeRecent is how many ledger/deposit entries a home shows.
+const HomeRecent = 3
 
+// UserHome returns the store's single-snapshot home unchanged.
 func (s *WalletService) UserHome(ctx context.Context, uid string) (entity.UserHome, error) {
-	home, err := s.store.UserHome(ctx, uid)
-	if err != nil {
-		return home, err
-	}
-	home.RecentActivity, err = s.store.PointHistory(ctx, uid, HistoryFilter{}, homeRecent, nil)
-	return home, err
+	return s.store.UserHome(ctx, uid)
 }
 
 func (s *WalletService) PartnerHome(ctx context.Context, uid string) (entity.PartnerHome, error) {
@@ -182,6 +180,6 @@ func (s *WalletService) PartnerHome(ctx context.Context, uid string) (entity.Par
 	if err != nil {
 		return home, err
 	}
-	home.RecentDeposits, err = s.store.PartnerDeposits(ctx, uid, HistoryFilter{}, homeRecent, nil)
+	home.RecentDeposits, err = s.store.PartnerDeposits(ctx, uid, HistoryFilter{}, HomeRecent, nil)
 	return home, err
 }

@@ -45,7 +45,7 @@ func (m *walletMemory) ClaimedDeposit(context.Context, string, string) (service.
 	return service.DepositRecord{}, service.ErrDepositNotFound
 }
 func (m *walletMemory) UserHome(context.Context, string) (entity.UserHome, error) {
-	return entity.UserHome{TotalWeightKG: "0.000"}, nil
+	return entity.UserHome{TotalWeightKG: "0.000", RecentActivity: []entity.PointHistoryEntry{}}, nil
 }
 func (m *walletMemory) PartnerHome(context.Context, string) (entity.PartnerHome, error) {
 	return entity.PartnerHome{}, service.ErrDepositForbidden

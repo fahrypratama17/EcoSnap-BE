@@ -98,17 +98,22 @@ func missionView(def MissionDefinition, s MissionSnapshot) entity.Mission {
 	return m
 }
 
-func (s *GamificationService) Missions(ctx context.Context, uid string) (entity.MissionList, error) {
-	snap, err := s.store.Missions(ctx, uid)
-	if err != nil {
-		return entity.MissionList{}, err
-	}
+// MissionListFromSnapshot is the single place a snapshot becomes the wire list.
+func MissionListFromSnapshot(snap MissionSnapshot) entity.MissionList {
 	out := entity.MissionList{PeriodStart: snap.PeriodStart, PeriodEnd: snap.PeriodEnd, ServerTime: snap.Now,
 		WeeklyXP: snap.WeeklyXP, TotalXP: snap.TotalXP, Missions: make([]entity.Mission, 0, len(Missions))}
 	for _, def := range Missions {
 		out.Missions = append(out.Missions, missionView(def, snap))
 	}
-	return out, nil
+	return out
+}
+
+func (s *GamificationService) Missions(ctx context.Context, uid string) (entity.MissionList, error) {
+	snap, err := s.store.Missions(ctx, uid)
+	if err != nil {
+		return entity.MissionList{}, err
+	}
+	return MissionListFromSnapshot(snap), nil
 }
 
 // ClaimMission awards XP once per mission and week. periodStart is the week

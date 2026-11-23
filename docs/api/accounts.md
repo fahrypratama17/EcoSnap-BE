@@ -1,9 +1,9 @@
 # Kontrak akun EcoSnap
 
-Pembaruan verifikasi: full suite PostgreSQL lokal portable kini PASS tanpa SKIP, termasuk akun, query mitra, favorit, dan CLI seed. Lihat [laporan PostgreSQL](../test-results/postgres-favorites.md). Catatan belum diuji/SKIP di bagian historis berikut menggambarkan pemeriksaan sebelumnya. Supabase, Firebase nyata, dan Android tetap belum diuji end-to-end.
+**Status saat ini:** akun, profil, dan settings lolos tes PostgreSQL lokal portable tanpa SKIP ([laporan](../test-results/postgres-favorites.md)). Pemilik melaporkan migration 00001–00010 Applied di Supabase development dan smoke 57 lulus dengan Firebase nyata ([bukti](../test-results/gamification-2026-11-21.md)); smoke itu mendahului settings, sehingga endpoint settings belum diuji dengan Firebase/Supabase nyata. Migration 00011–00012 belum diterapkan ke Supabase. Android belum terhubung. Catatan "belum diuji", "SKIP", dan "belum diterapkan" di bagian historis di bawah menggambarkan keadaan saat bagian itu ditulis. Urutan pemakaian di Android: [android-integration.md](android-integration.md#21-sesi-pemulihan-profil-registrasi).
 
 
-Status: implementasi lokal tersedia; migration dan perilaku PostgreSQL nyata belum diuji. Frontend tidak diubah. Endpoint membutuhkan Firebase ID token melalui Authorization Bearer. Kontrak ini memenuhi FE-02/03/20 pada audit frontend.
+Status awal (historis): implementasi lokal; saat itu migration dan perilaku PostgreSQL nyata belum diuji. Endpoint membutuhkan Firebase ID token melalui Authorization Bearer. Kontrak ini memenuhi FE-02/03/20 pada audit frontend.
 
 ## POST /api/v1/accounts
 
@@ -81,13 +81,13 @@ Semua route akun dibungkus middleware auth dan memakai Cache-Control no-store. M
 - database/migrations/00002_create_partner_registrations.sql: tabel pendaftaran usaha dengan RLS dan grant dibatasi. DBML lama tetap arsip; migration merupakan perubahan implementasi.
 - internal/delivery/http/account_endpoints_test.go: uji HTTP dengan verifier dan penyimpanan pengganti. Tidak membuktikan rollback/commit/constraint/race PostgreSQL.
 
-Jalankan migration 00002 pada database development menggunakan Goose sebelum mencoba endpoint akun. CLI memakai environment GOOSE_DRIVER=postgres dan GOOSE_DBSTRING yang menunjuk database development; perintahnya `goose -dir database/migrations up`. Migration pertama tidak diubah, migration kedua belum diterapkan AI. Goose mencatat versi yang telah dijalankan; tidak perlu menjalankan SQL CREATE secara manual.
+Jalankan migration pada database development menggunakan Goose sebelum mencoba endpoint akun. CLI memakai environment GOOSE_DRIVER=postgres dan GOOSE_DBSTRING yang menunjuk database development; perintahnya `goose -dir database/migrations up`. Goose mencatat versi yang telah dijalankan; tidak perlu menjalankan SQL CREATE secara manual. Migration 00001–00010 dilaporkan Applied oleh pemilik; 00011–00012 belum.
 
-Pemeriksaan yang masih diperlukan: upgrade migration, rollback terkontrol pada database disposable, akun/settings/wallet atomik saat query gagal, request paralel UID sama, retry berbeda menghasilkan 409, serta integrasi token Firebase dan PostgreSQL nyata. Dilarang menyebut AUTH-03 selesai berdasarkan tes memory store saja.
+Pemeriksaan yang diperlukan saat bagian ini ditulis (historis; sebagian sudah dibuktikan oleh suite PostgreSQL lokal, sedangkan token Firebase dan Supabase nyata untuk settings masih belum): upgrade migration, rollback terkontrol pada database disposable, akun/settings/wallet atomik saat query gagal, request paralel UID sama, retry berbeda menghasilkan 409, serta integrasi token Firebase dan PostgreSQL nyata. Dilarang menyebut AUTH-03 selesai berdasarkan tes memory store saja.
 
 ## Suite PostgreSQL tambahan
 
-Integration test melalui Register/Profile dan runner Docker opsional sudah ditambahkan. Sembilan skenario serta cara menjalankan dijelaskan pada [panduan pengujian PostgreSQL](../testing-accounts-postgres.md). Saat ini test database masih SKIP karena engine/environment belum tersedia. Ini tidak mengganti status verifikasi PostgreSQL yang belum selesai di atas.
+Integration test melalui Register/Profile dan runner Docker opsional sudah ditambahkan. Sembilan skenario serta cara menjalankan dijelaskan pada [panduan pengujian PostgreSQL](../testing-accounts-postgres.md). Saat bagian ini ditulis test database masih SKIP; suite portable kemudian lulus tanpa SKIP (lihat status di atas).
 
 ## PATCH /api/v1/me (2026-11-20)
 
@@ -132,7 +132,7 @@ PATCH membutuhkan `Content-Type: application/json`, body maksimal 16 KiB, satu o
 ```
 
 - `show_on_leaderboard` hanya dapat dibaca di sini. Satu-satunya penulis tetap `PATCH /api/v1/me/leaderboard-visibility` (user active saja); lihat [gamification.md](gamification.md).
-- `notification_enabled` hanya menyimpan preferensi. Belum ada mesin pengiriman notifikasi dan tidak ada push (Q-10 tetap terbuka).
+- `notification_enabled` mengendalikan pembuatan notifikasi inbox **baru** (migration 00011): bernilai `false` menahan notifikasi baru, sedangkan notifikasi yang sudah ada tetap terbaca. Tidak ada push (Q-10 tetap terbuka); lihat [notifications.md](notifications.md).
 - `onboarding_completed` boleh dikirim `false` maupun `true` dan idempotent. Backend tidak memakainya untuk menggerbang akses; keputusan Q-12 lain tidak dibuat.
 - Tidak ada perubahan Android.
 

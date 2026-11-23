@@ -20,7 +20,9 @@ func NewArticleRepository(pool *pgxpool.Pool) *ArticleRepository {
 const articleSummaryColumns = `id::text,title,summary,category::text,reading_minutes,is_featured,is_demo,published_at`
 
 // Only published articles whose publish time has passed are visible, so a
-// scheduled article stays hidden until then.
+// scheduled article stays hidden until then. now() is the enclosing
+// transaction's start time (the snapshot's visibility instant), not an exact
+// wall-clock sample.
 const articleVisible = `is_published AND published_at<=now()`
 
 // likePattern escapes LIKE wildcards so the search is a literal substring.
@@ -29,13 +31,19 @@ func likePattern(s string) string {
 }
 
 func (r *ArticleRepository) Articles(ctx context.Context, f service.ArticleFilter, limit int, after *service.Cursor) ([]entity.ArticleSummary, error) {
+	return articlesTx(ctx, r.pool, f, limit, after)
+}
+
+// articlesTx lists visible articles newest first; shared by the article list
+// and the home card.
+func articlesTx(ctx context.Context, q rowQuerier, f service.ArticleFilter, limit int, after *service.Cursor) ([]entity.ArticleSummary, error) {
 	var pattern *string
 	if f.Search != nil {
 		p := likePattern(*f.Search)
 		pattern = &p
 	}
 	at, id := cursorArgs(after)
-	rows, err := r.pool.Query(ctx, `SELECT `+articleSummaryColumns+` FROM public.articles
+	rows, err := q.Query(ctx, `SELECT `+articleSummaryColumns+` FROM public.articles
  WHERE `+articleVisible+`
  AND ($1::text IS NULL OR title ILIKE $1 OR summary ILIKE $1)
  AND ($2::text IS NULL OR category::text=$2)

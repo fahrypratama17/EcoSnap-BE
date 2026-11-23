@@ -38,7 +38,13 @@ func scanPartner(row partnerScanner) (entity.PartnerDetail, error) {
 	return p, err
 }
 func (r *PartnerRepository) List(ctx context.Context, f service.PartnerFilter) ([]entity.PartnerDetail, error) {
-	rows, err := r.pool.Query(ctx, partnerSelect+`AND ($1='' OR strpos(lower(p.business_name),lower($1))>0 OR strpos(lower(p.area),lower($1))>0)
+	return partnersTx(ctx, r.pool, f)
+}
+
+// partnersTx lists visible partners in stable name,id order; shared by the
+// partner list and the home suggestion.
+func partnersTx(ctx context.Context, q rowQuerier, f service.PartnerFilter) ([]entity.PartnerDetail, error) {
+	rows, err := q.Query(ctx, partnerSelect+`AND ($1='' OR strpos(lower(p.business_name),lower($1))>0 OR strpos(lower(p.area),lower($1))>0)
  AND ($2='' OR EXISTS(SELECT 1 FROM public.partner_accepted_waste aw JOIN public.waste_categories c ON c.id=aw.category_id WHERE aw.partner_id=p.id AND c.slug=$2))
  ORDER BY p.business_name,p.id LIMIT $3 OFFSET $4`, f.Query, f.Material, f.Limit, f.Offset)
 	if err != nil {

@@ -1,8 +1,12 @@
 # API EcoSnap untuk tim Android
 
-Mulai dari sini. Dokumen per fitur dirujuk di bagian 4; dokumen ini memuat hal yang berlaku di semua endpoint, urutan pemanggilan per layar, dan katalog error.
+Mulai dari sini. Dokumen ini adalah indeks, konvensi umum, ringkasan alur per layar, dan katalog error. Detail kolom per endpoint ada di dokumen fitur (bagian 4); urutan panggilan, retry, refresh, dan perubahan yang diperlukan di Android ada di [android-integration.md](android-integration.md).
 
-**Status:** 46 route tercatat di router. Suite backend lokal PostgreSQL terbaru: **90 tes top-level + 134 subtest PASS, 0 FAIL/SKIP**; build/vet dan runtime HTTP juga lulus ([bukti fondasi](../test-results/server-foundation-2026-11-22.md)). Render PDF dibuktikan pada [batch sebelumnya](../test-results/backend-support-reports-notifications-2026-11-21.md). Pemilik sebelumnya melaporkan migration 00001–00010 Applied dan smoke **57 lulus, 0 gagal** dengan Firebase nyata dan Supabase development ([bukti](../test-results/gamification-2026-11-21.md)). Endpoint settings, laporan/PDF, bantuan dan inbox ditambahkan sesudah smoke tersebut: belum diuji dengan Firebase/Supabase nyata. Migration 00011–00012 belum diterapkan ke Supabase. Integrasi Android belum diuji. Jika respons berbeda, laporkan request tanpa token/credential.
+**Status:** 46 route, tanpa endpoint baru pada paket Home. Verifikasi paket Home: **83 tes top-level + 140 subtes PASS, 0 FAIL/SKIP** pada tiga package terdampak; vet package tersebut dan build seluruh package lulus ([bukti](../test-results/home-package-2026-11-23.md)). HTTP memakai server asli dan PostgreSQL disposable dengan pool satu koneksi, auth sintetis.
+
+Checkpoint full suite sebelum paket Home: 90 tes top-level + 134 subtes PASS ([bukti fondasi](../test-results/server-foundation-2026-11-22.md)). Pemilik sebelumnya melaporkan migration 00001–00010 Applied dan smoke Firebase/Supabase **57 PASS** ([bukti](../test-results/gamification-2026-11-21.md)); smoke itu mendahului settings, laporan/PDF, bantuan, inbox dan Home baru. Fitur-fitur baru belum dibuktikan dengan Firebase/Supabase nyata; migration 00011–00012 dan integrasi runtime Android masih terbuka. Jika respons berbeda, laporkan X-Request-ID tanpa token/credential.
+
+> **Prasyarat database:** Home baru membaca `unread_count` dari tabel notifikasi (migration 00011), jadi **terapkan migration 00011 sebelum memakai `GET /me/home` versi baru**; tabel tidak ada → request gagal, tidak ada fallback `0`. Seluruh flow, termasuk bantuan/tiket, memerlukan 00011 **dan** 00012. Tidak ada migration baru di paket Home. Ini rujukan tunggal; dokumen lain menautkan ke sini.
 
 ## 1. Alamat server
 
@@ -55,8 +59,8 @@ Semua memerlukan Bearer token kecuali `/health`. Kolom "Siapa": **user**, **mitr
 
 | Endpoint | Siapa | Dokumen |
 |---|---|---|
-| `GET /health` | publik | [android-integration.md](android-integration.md) |
-| `GET /api/v1/auth/me` | semua | [android-integration.md](android-integration.md) |
+| `GET /health` | publik | [android-integration.md](android-integration.md#5-arsip-audit-frontend-17-november-2026) |
+| `GET /api/v1/auth/me` | semua | [android-integration.md](android-integration.md#5-arsip-audit-frontend-17-november-2026) |
 | `POST /api/v1/accounts` | semua (sekali) | [accounts.md](accounts.md) |
 | `GET /api/v1/me` · `PATCH /api/v1/me` | semua | [accounts.md](accounts.md) |
 | `GET /api/v1/me/settings` · `PATCH /api/v1/me/settings` | semua (active) | [accounts.md](accounts.md) |
@@ -90,9 +94,9 @@ Semua memerlukan Bearer token kecuali `/health`. Kolom "Siapa": **user**, **mitr
 `GET /api/v1/me/settings` memuat `notification_enabled`, `show_on_leaderboard`, `onboarding_completed`. `PATCH /api/v1/me/settings` menerima hanya `notification_enabled` dan/atau `onboarding_completed` (boolean; dihilangkan = tidak berubah; `false` sah; null/kosong/asing/query ditolak dengan 400 `invalid_request`). Visibilitas leaderboard tetap diubah lewat `PATCH /me/leaderboard-visibility` (hanya user). Setelah migration 00011, preferensi notifikasi mengendalikan pembuatan inbox baru, bukan push. Belum diuji dari Android.
 
 ### Beranda
-- User: `GET /api/v1/me/home` (saldo, jumlah klaim, total berat, voucher aktif, 3 aktivitas terbaru).
-- Mitra: `GET /api/v1/partner/home`.
-- Angka all-time. Misi dan badge ada di layar tersendiri (lihat "Misi, badge, dan leaderboard"); `/me/home` belum memuatnya.
+- User: satu `GET /api/v1/me/home`: nama, saldo, `monthly_deposits` (bulan WIB), `deposits_claimed` dan `total_weight_kg` (all-time), voucher aktif, 3 aktivitas terbaru, daftar misi minggu ini (sama dengan `/me/missions`), satu mitra saran global (bukan terdekat), satu artikel terbaru, dan `unread_count`. `partner` dan `article` bernilai `null` bila kosong. Kolom lengkap dan pemetaan `HomeUiState`: [wallet-history.md](wallet-history.md#get-apiv1mehome).
+- Mitra: `GET /api/v1/partner/home`. Mitra aktif yang memanggil `/me/home` mendapat `missions: null`.
+- EcoPoints (saldo) bukan XP (hadiah misi); jangan menjumlahkan keduanya.
 
 ### Peta dan daftar mitra
 `GET /api/v1/partners?q=&material=<slug>&limit=&offset=` dan detail per ID. Pencarian berdasarkan nama/area; belum ada radius/GPS (urutan jarak dihitung di Android jika perlu).
