@@ -45,34 +45,35 @@ func checkUserTx(ctx context.Context, q rowQuerier, uid string) error {
 	return nil
 }
 
+// missionSnapshotSQL reads the whole mission snapshot in one statement.
+// Args: uid=$1, period start=$2, period end=$3, now=$4. The claimed map
+// intentionally does not filter claimed_at<=now; XP totals do.
+const missionSnapshotSQL = `SELECT dep.deposits,dep.weight_grams,xp.weekly_xp,xp.total_xp,cl.claimed
+FROM (SELECT count(*)::bigint AS deposits,COALESCE(sum(d.total_weight_grams),0)::bigint AS weight_grams
+ FROM public.deposit_claims c JOIN public.deposits d ON d.id=c.deposit_id
+ WHERE c.claimer_uid=$1 AND c.claimed_at>=$2::timestamptz AND c.claimed_at<$3::timestamptz AND c.claimed_at<=$4::timestamptz) dep
+CROSS JOIN (SELECT COALESCE(jsonb_object_agg(mission_id,claimed_at),'{}'::jsonb) AS claimed
+ FROM public.mission_claims WHERE user_uid=$1 AND period_start=$2::timestamptz) cl
+CROSS JOIN (SELECT COALESCE(sum(xp) FILTER (WHERE period_start=$2::timestamptz AND claimed_at<=$4::timestamptz),0)::bigint AS weekly_xp,
+ COALESCE(sum(xp) FILTER (WHERE claimed_at<=$4::timestamptz),0)::bigint AS total_xp
+ FROM public.mission_claims WHERE user_uid=$1) xp`
+
+// missionSnapshotAt returns a snapshot initialized with the period for now.
+func missionSnapshotAt(now time.Time) service.MissionSnapshot {
+	start, end := service.WeekPeriod(now)
+	return service.MissionSnapshot{PeriodStart: start, PeriodEnd: end, Now: now}
+}
+
+// scanMissionSnapshot decodes a missionSnapshotSQL row into snapshot.
+// Claimed is always non-nil on success.
+func scanMissionSnapshot(row pgx.Row, snapshot *service.MissionSnapshot) error {
+	return row.Scan(&snapshot.Deposits, &snapshot.WeightGrams, &snapshot.WeeklyXP, &snapshot.TotalXP, &snapshot.Claimed)
+}
+
 // missionSnapshotTx reads the current week as of now (claims after now are ignored).
 func missionSnapshotTx(ctx context.Context, q rowQuerier, uid string, now time.Time) (service.MissionSnapshot, error) {
-	start, end := service.WeekPeriod(now)
-	s := service.MissionSnapshot{PeriodStart: start, PeriodEnd: end, Now: now, Claimed: map[string]time.Time{}}
-	err := q.QueryRow(ctx, `SELECT count(*)::bigint,COALESCE(sum(d.total_weight_grams),0)::bigint
- FROM public.deposit_claims c JOIN public.deposits d ON d.id=c.deposit_id
- WHERE c.claimer_uid=$1 AND c.claimed_at>=$2 AND c.claimed_at<$3 AND c.claimed_at<=$4`, uid, start, end, now).Scan(&s.Deposits, &s.WeightGrams)
-	if err != nil {
-		return s, err
-	}
-	rows, err := q.Query(ctx, `SELECT mission_id,claimed_at FROM public.mission_claims WHERE user_uid=$1 AND period_start=$2`, uid, start)
-	if err != nil {
-		return s, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var id string
-		var at time.Time
-		if err = rows.Scan(&id, &at); err != nil {
-			return s, err
-		}
-		s.Claimed[id] = at
-	}
-	if err = rows.Err(); err != nil {
-		return s, err
-	}
-	rows.Close()
-	err = q.QueryRow(ctx, `SELECT COALESCE(sum(xp) FILTER (WHERE period_start=$2 AND claimed_at<=$3),0)::bigint,COALESCE(sum(xp) FILTER (WHERE claimed_at<=$3),0)::bigint FROM public.mission_claims WHERE user_uid=$1`, uid, start, now).Scan(&s.WeeklyXP, &s.TotalXP)
+	s := missionSnapshotAt(now)
+	err := scanMissionSnapshot(q.QueryRow(ctx, missionSnapshotSQL, uid, s.PeriodStart, s.PeriodEnd, now), &s)
 	return s, err
 }
 

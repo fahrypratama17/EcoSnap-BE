@@ -1,6 +1,6 @@
 # Runbook: migration dan data demo ke Supabase development
 
-Dijalankan oleh pemilik repo. AI tidak membaca credential dan tidak mengeksekusi ke Supabase. Laporan pemilik 2026-11-21 pukul 17:37: migration `00010_create_gamification.sql` berhasil dan `goose status` menunjukkan seluruh migration `00001`–`00010` Applied.
+Dijalankan oleh pemilik repo. AI tidak membaca credential dan tidak mengeksekusi ke Supabase. Laporan pemilik 2026-11-24 pukul 12:40: seluruh migration `00001`–`00012` Applied; `goose up` berikutnya menyatakan tidak ada migration lagi.
 
 ## 0. Sebelum mulai
 
@@ -21,9 +21,9 @@ $env:DATABASE_URL = "postgresql://postgres:<password>@<host>:5432/postgres?sslmo
 goose -dir database/migrations postgres $env:DATABASE_URL status
 ```
 
-Kondisi terakhir yang dilaporkan: `00001`–`00010` **Applied**. `00010_create_gamification.sql` menambah tabel `mission_claims` dan trigger immutable pada `mission_claims` dan `deposit_claims`. Jangan menjalankan ulang SQL migration secara manual; gunakan Goose.
+Kondisi terakhir yang dilaporkan: `00001`–`00012` **Applied**. `00010_create_gamification.sql` menambah tabel `mission_claims` dan trigger immutable pada `mission_claims` dan `deposit_claims`. Jangan menjalankan ulang SQL migration secara manual; gunakan Goose.
 
-Tambahan lokal yang belum diterapkan/dibuktikan di Supabase: `00011_create_notifications.sql` (inbox dan trigger peristiwa) dan `00012_create_support_tickets.sql` (antrean bantuan dan penjaga data asli). Jangan mengedit 00001–00010 yang sudah Applied.
+`00011_create_notifications.sql` (inbox dan trigger peristiwa) serta `00012_create_support_tickets.sql` (antrean bantuan dan penjaga data asli) dilaporkan sudah diterapkan pada 2026-11-24. Jangan mengedit migration yang sudah Applied. Perbaikan latensi Home/misi tidak memerlukan migration atau seed ulang.
 
 **Berhenti** dan laporkan ke AI jika:
 - `00006` atau `00007` tercatat Applied tetapi skema remote tidak sesuai laporan kondisi terakhir. Isi kedua file sudah diubah setelah dibuat, jadi versi di database bisa berbeda.
@@ -114,5 +114,7 @@ Tiket perlu ditindaklanjuti pemilik melalui `go run ./cmd/support-tickets list -
 
 Inbox dibuat atomik bersama klaim setoran, penukaran dan klaim XP yang baru, mengikuti `notification_enabled`. Backend harus memakai role pemilik migration seperti konfigurasi saat ini; role runtime berbeda membutuhkan grant tabel/fungsi dan kebijakan akses yang sesuai. Akun `anon`/`authenticated` tetap tidak diberi akses langsung.
 
-Smoke 57 PASS dan mode SettingsOnly belum membuktikan tiga fitur baru ini. Verifikasi nyata selanjutnya perlu memeriksa angka laporan/unduhan PDF, tiket-balasan CLI, dan inbox/read melalui token akun masing-masing; jangan menyebutnya lulus sebelum hasil ada.
+Laporan pemilik 2026-11-24: `-SettingsOnly` **47 PASS, 0 FAIL** dengan Firebase/Supabase nyata. `-FlowsOnly` berikutnya **66 PASS, 3 FAIL**: Home user, Home mitra dan misi terkena `504 request_timeout`; laporan JSON/PDF kedua peran, daftar inbox, FAQ serta daftar tiket berhasil dibaca. Preflight menghentikan tes sebelum transaksi, klaim XP atau tiket baru. Ini belum membuktikan full smoke, event inbox/read baru maupun tiket-balasan CLI.
+
+Sesudah mengambil perbaikan Home/misi, restart backend dari terminal yang masih memiliki `DATABASE_URL` dan `GOOGLE_APPLICATION_CREDENTIALS`, lalu jalankan `./scripts/smoke-test.ps1 -ApiKey $key -FlowsOnly` dari terminal smoke. Jangan langsung mengulang full smoke atau migration. Kirim ringkasan PASS/FAIL dan log `request_id`/`duration` bila masih 504, tanpa credential/token.
 

@@ -54,23 +54,34 @@ func (r *WalletRepository) PointHistory(ctx context.Context, uid string, f servi
 // pointHistoryTx lists ledger entries newest first; shared by the history
 // endpoint and the home card so both read the same rows the same way.
 func pointHistoryTx(ctx context.Context, q rowQuerier, uid string, f service.HistoryFilter, limit int, after *service.Cursor) ([]entity.PointHistoryEntry, error) {
+	sql, args := pointHistoryQuery(uid, f, limit, after)
+	rows, err := q.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	return scanPointHistory(rows)
+}
+
+// pointHistoryQuery builds the ledger page query; also queued by the home batch.
+func pointHistoryQuery(uid string, f service.HistoryFilter, limit int, after *service.Cursor) (string, []any) {
 	at, id := cursorArgs(after)
-	rows, err := q.Query(ctx, `SELECT l.id::text,l.amount,l.source::text,l.created_at,d.id::text,d.partner_id::text,p.business_name,d.total_weight_grams,rd.id::text,rd.reward_name
+	return `SELECT l.id::text,l.amount,l.source::text,l.created_at,d.id::text,d.partner_id::text,p.business_name,d.total_weight_grams,rd.id::text,rd.reward_name
  FROM public.point_ledger l LEFT JOIN public.deposits d ON d.id=l.deposit_id LEFT JOIN public.partners p ON p.id=d.partner_id
  LEFT JOIN public.redemptions rd ON rd.id=l.redemption_id
  WHERE l.user_uid=$1 AND ($2::timestamptz IS NULL OR (l.created_at,l.id)<($2,$3::uuid))
  AND ($5::text IS NULL OR l.source::text=$5) AND ($6::timestamptz IS NULL OR l.created_at>=$6) AND ($7::timestamptz IS NULL OR l.created_at<$7)
- ORDER BY l.created_at DESC,l.id DESC LIMIT $4`, uid, at, id, limit, f.Kind, f.From, f.To)
-	if err != nil {
-		return nil, err
-	}
+ ORDER BY l.created_at DESC,l.id DESC LIMIT $4`, []any{uid, at, id, limit, f.Kind, f.From, f.To}
+}
+
+// scanPointHistory drains and closes rows.
+func scanPointHistory(rows pgx.Rows) ([]entity.PointHistoryEntry, error) {
 	defer rows.Close()
 	out := []entity.PointHistoryEntry{}
 	for rows.Next() {
 		var e entity.PointHistoryEntry
 		var depositID, partnerID, partnerName, redemptionID, rewardName *string
 		var grams *int64
-		if err = rows.Scan(&e.ID, &e.Amount, &e.Source, &e.CreatedAt, &depositID, &partnerID, &partnerName, &grams, &redemptionID, &rewardName); err != nil {
+		if err := rows.Scan(&e.ID, &e.Amount, &e.Source, &e.CreatedAt, &depositID, &partnerID, &partnerName, &grams, &redemptionID, &rewardName); err != nil {
 			return nil, err
 		}
 		if depositID != nil {

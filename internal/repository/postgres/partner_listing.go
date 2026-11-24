@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/fahrypratama17/EcoSnap-BE/domain/entity"
 	"github.com/fahrypratama17/EcoSnap-BE/internal/service"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -44,12 +45,23 @@ func (r *PartnerRepository) List(ctx context.Context, f service.PartnerFilter) (
 // partnersTx lists visible partners in stable name,id order; shared by the
 // partner list and the home suggestion.
 func partnersTx(ctx context.Context, q rowQuerier, f service.PartnerFilter) ([]entity.PartnerDetail, error) {
-	rows, err := q.Query(ctx, partnerSelect+`AND ($1='' OR strpos(lower(p.business_name),lower($1))>0 OR strpos(lower(p.area),lower($1))>0)
- AND ($2='' OR EXISTS(SELECT 1 FROM public.partner_accepted_waste aw JOIN public.waste_categories c ON c.id=aw.category_id WHERE aw.partner_id=p.id AND c.slug=$2))
- ORDER BY p.business_name,p.id LIMIT $3 OFFSET $4`, f.Query, f.Material, f.Limit, f.Offset)
+	sql, args := partnersQuery(f)
+	rows, err := q.Query(ctx, sql, args...)
 	if err != nil {
 		return nil, err
 	}
+	return scanPartners(rows)
+}
+
+// partnersQuery builds the partner page query; also queued by the home batch.
+func partnersQuery(f service.PartnerFilter) (string, []any) {
+	return partnerSelect + `AND ($1='' OR strpos(lower(p.business_name),lower($1))>0 OR strpos(lower(p.area),lower($1))>0)
+ AND ($2='' OR EXISTS(SELECT 1 FROM public.partner_accepted_waste aw JOIN public.waste_categories c ON c.id=aw.category_id WHERE aw.partner_id=p.id AND c.slug=$2))
+ ORDER BY p.business_name,p.id LIMIT $3 OFFSET $4`, []any{f.Query, f.Material, f.Limit, f.Offset}
+}
+
+// scanPartners drains and closes rows.
+func scanPartners(rows pgx.Rows) ([]entity.PartnerDetail, error) {
 	defer rows.Close()
 	result := []entity.PartnerDetail{}
 	for rows.Next() {

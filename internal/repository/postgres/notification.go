@@ -62,10 +62,13 @@ func (r *NotificationRepository) List(ctx context.Context, uid string, unreadOnl
 	return out, unread, nil
 }
 
+// unreadCountSQL counts the caller's unread notifications; arg $1 is the uid.
+const unreadCountSQL = `SELECT count(*) FROM public.notifications WHERE recipient_uid=$1 AND seen_at IS NULL`
+
 // unreadCountTx is the caller's total unread notifications, whatever the page.
 func unreadCountTx(ctx context.Context, q rowQuerier, uid string) (int64, error) {
 	var unread int64
-	err := q.QueryRow(ctx, `SELECT count(*) FROM public.notifications WHERE recipient_uid=$1 AND seen_at IS NULL`, uid).Scan(&unread)
+	err := q.QueryRow(ctx, unreadCountSQL, uid).Scan(&unread)
 	return unread, err
 }
 

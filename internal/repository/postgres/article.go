@@ -37,27 +37,38 @@ func (r *ArticleRepository) Articles(ctx context.Context, f service.ArticleFilte
 // articlesTx lists visible articles newest first; shared by the article list
 // and the home card.
 func articlesTx(ctx context.Context, q rowQuerier, f service.ArticleFilter, limit int, after *service.Cursor) ([]entity.ArticleSummary, error) {
+	sql, args := articlesQuery(f, limit, after)
+	rows, err := q.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	return scanArticles(rows)
+}
+
+// articlesQuery builds the article page query; also queued by the home batch.
+func articlesQuery(f service.ArticleFilter, limit int, after *service.Cursor) (string, []any) {
 	var pattern *string
 	if f.Search != nil {
 		p := likePattern(*f.Search)
 		pattern = &p
 	}
 	at, id := cursorArgs(after)
-	rows, err := q.Query(ctx, `SELECT `+articleSummaryColumns+` FROM public.articles
- WHERE `+articleVisible+`
+	return `SELECT ` + articleSummaryColumns + ` FROM public.articles
+ WHERE ` + articleVisible + `
  AND ($1::text IS NULL OR title ILIKE $1 OR summary ILIKE $1)
  AND ($2::text IS NULL OR category::text=$2)
  AND (NOT $3 OR is_featured)
  AND ($4::timestamptz IS NULL OR (published_at,id)<($4,$5::uuid))
- ORDER BY published_at DESC,id DESC LIMIT $6`, pattern, f.Category, f.Featured, at, id, limit)
-	if err != nil {
-		return nil, err
-	}
+ ORDER BY published_at DESC,id DESC LIMIT $6`, []any{pattern, f.Category, f.Featured, at, id, limit}
+}
+
+// scanArticles drains and closes rows.
+func scanArticles(rows pgx.Rows) ([]entity.ArticleSummary, error) {
 	defer rows.Close()
 	out := []entity.ArticleSummary{}
 	for rows.Next() {
 		var a entity.ArticleSummary
-		if err = rows.Scan(&a.ID, &a.Title, &a.Summary, &a.Category, &a.ReadingMinutes, &a.IsFeatured, &a.IsDemo, &a.PublishedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.Title, &a.Summary, &a.Category, &a.ReadingMinutes, &a.IsFeatured, &a.IsDemo, &a.PublishedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
