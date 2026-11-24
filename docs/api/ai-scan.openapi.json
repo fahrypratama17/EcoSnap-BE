@@ -3,17 +3,17 @@
   "info": {
     "title": "EcoSnap Waste Analysis API (AI scan service)",
     "version": "0.1.0",
-    "description": "Kontrak layanan FastAPI mandiri (port 8000) milik tim AI, diekspor dari implementasi pada commit 9dad3cb5ff06f4c009c2a48af25b70c3f4a1f8ab (https://github.com/fahrypratama17/EcoSnap-FE/tree/9dad3cb5ff06f4c009c2a48af25b70c3f4a1f8ab/backend). Ini BUKAN bagian dari 46 rute Go EcoSnap-BE. Layanan tidak menegakkan autentikasi Firebase Bearer. Runtime memakai `request.form` manual sehingga OpenAPI otomatis FastAPI (/openapi.json) tidak memuat requestBody, header X-Scan-Id, maupun error; dokumen ini sengaja mendokumentasikannya dari implementasi. Verifikasi lokal: struktur OpenAPI 3.1, 6 skema cocok dengan Pydantic sumber, 24 contoh respons, dan 18 skenario HTTP FastAPI lulus menggunakan fixture inferensi; tidak ada panggilan live Groq atau verifikasi kualitas model.",
+    "description": "Kontrak layanan FastAPI mandiri di ai-service/ EcoSnap-BE (port 8000), dipindahkan dari EcoSnap-FE commit 4310cd7dac442b71130f375ab61a4025d298686c. Ini BUKAN bagian dari 46 rute Go port 8080. Layanan tidak menegakkan autentikasi Firebase Bearer; gunakan lokal sampai deployment diautentikasi dan diamankan. Runtime menyajikan kontrak ini melalui /openapi.json agar Swagger menampilkan multipart image, X-Scan-Id dan seluruh error. Pengujian memakai provider sintetis, bukan bukti key, kuota atau akurasi model Groq nyata.",
     "x-source": {
       "repository": "https://github.com/fahrypratama17/EcoSnap-FE",
       "branch": "13-feat/ai-waste-scan",
-      "commit": "9dad3cb5ff06f4c009c2a48af25b70c3f4a1f8ab"
+      "commit": "4310cd7dac442b71130f375ab61a4025d298686c"
     }
   },
   "servers": [
     {
-      "url": "http://127.0.0.1:8000",
-      "description": "Lokal, hanya pengembangan"
+      "url": "/",
+      "description": "Origin service AI yang menyajikan dokumentasi; lokal default http://127.0.0.1:8000"
     }
   ],
   "paths": {

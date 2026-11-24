@@ -17,3 +17,9 @@
 
 # Newman CI tooling dependencies
 /scripts/newman/node_modules/
+
+# Python AI service local environments and caches
+/ai-service/.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
