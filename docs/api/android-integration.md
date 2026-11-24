@@ -152,6 +152,8 @@ Fitur: [deposits.md](deposits.md). FE: `DepositRepository`, `ScanQrRoute`, `Depo
 
 Status FE: `LocalDeposits` dan layar hasil lokal dihapus. Preview/klaim memakai server dan hasil dirutekan dengan UUID setoran, tanpa token pada URL. Form mitra menyimpan niat per UID sebelum POST; hasil belum diketahui dipulihkan dengan payload/key sama, hasil selesai dengan ID setoran. QR/token hanya di memori, warning selalu ditampilkan dan countdown memakai waktu monotonic.
 
+Screenshot layar QR kini diizinkan atas permintaan pemilik untuk laporan; FE tidak lagi memasang `FLAG_SECURE`. QR tetap bearer token: siapa pun yang memperoleh screenshot QR aktif berpotensi mengklaim setoran. Gunakan QR yang sudah diklaim/kedaluwarsa atau sensor gambarnya sebelum membagikan laporan. Aplikasi tetap tidak menulis token ke penyimpanan/log secara otomatis.
+
 ### 2.8 Saldo, riwayat, reward, voucher
 
 Fitur: [wallet-history.md](wallet-history.md), [rewards.md](rewards.md). FE: `PointsRoute`, `PointHistoryRoute`, `VoucherListRoute`, `VoucherDetailRoute`, serta `WalletRepository`; bukan lagi placeholder. Katalog/detail reward, konfirmasi tukar, filter/cursor riwayat/voucher, dan konfirmasi pemakaian voucher memakai server. Niat tukar disimpan per UID sebelum POST dan hasil belum diketahui tidak dibuang saat logout/proses mati.
