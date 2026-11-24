@@ -4,25 +4,34 @@ Panduan alur untuk tim Android: urutan panggilan, retry, refresh, dan penanganan
 
 ## Status
 
-- Backend menyediakan 46 operasi Go. Pada FE, Firebase Auth, akun/profil, beranda user/mitra, pencarian/detail/kategori/favorit mitra, artikel, serta daftar/klaim misi kini tersambung. Ini **bukan** pernyataan seluruh 46 operasi sudah dipakai Android; batas per fitur ada di bagian 3.
+- Backend menyediakan 46 operasi Go. FE memakai Firebase Auth dan klien server untuk akun/profil/settings, beranda user/mitra, mitra/favorit, artikel, estimasi/setoran/QR, saldo/riwayat/reward/voucher, misi/badge/XP mingguan, inbox, bantuan/tiket, dan laporan JSON/PDF. Cakupan bukti runtime dicatat terpisah; keberadaan klien bukan pernyataan semua 46 operasi sudah diuji Android/cloud.
 - Status migration dan smoke Firebase/Supabase development mengikuti [README API](README.md), bukan catatan historis di dokumen ini. Pengujian Android dengan Firebase Auth Emulator dan PostgreSQL disposable tidak membuktikan koneksi project cloud yang dipilih developer.
 - Data tarif, reward, artikel, FAQ, dan mitra seed adalah **demo** (`is_demo`/`uses_demo_rates`); tampilkan labelnya.
 
 ### Menjalankan dari Android Studio
 
 - Simpan konfigurasi aplikasi Android untuk `com.example.ecosnap` di `EcoSnap-FE/app/google-services.json`. Project Firebase harus sama dengan verifier Go; provider Email/Password harus aktif. Jangan memakai service-account JSON di Android.
-- `API_BASE_URL` di `EcoSnap-FE/local.properties` adalah **origin**, misalnya `http://10.0.2.2:8080/` untuk Android Emulator. HP fisik memakai IP LAN laptop; listener Go perlu `HTTP_ADDR=0.0.0.0:8080` dan firewall sesuai.
+- `API_BASE_URL` di `EcoSnap-FE/local.properties` adalah **origin**. Emulator tanpa reverse memakai `http://10.0.2.2:8080/`; alamat `10.0.2.2` bukan alamat laptop untuk HP fisik. HP USB bisa memakai `http://127.0.0.1:8080/` setelah `adb reverse tcp:8080 tcp:8080` pada perangkat tersebut (ulang setelah tersambung kembali); listener Go tetap loopback. Alternatif HP lewat LAN: IP LAN laptop, `HTTP_ADDR=0.0.0.0:8080`, dan firewall sesuai. Setelah mengubah URL, build/Run ulang APK, bukan sekadar membuka aplikasi lama.
 - Tombol Run Android Studio hanya menjalankan FE. Di terminal BE, isi environment server sesuai runbook lalu jalankan `go run ./cmd/app`; password database dan Firebase Admin credentials tetap di server. Tidak ada auto-deploy atau auto-start Go dari Android.
 - `/health` hanya liveness HTTP. Login lalu buka beranda/peta untuk menguji token dan PostgreSQL; daftar kosong yang sah tidak diganti mitra/artikel demo. Home membutuhkan migration 00011, seluruh fitur termasuk bantuan membutuhkan 00012.
 - Build memakai JVM 25 sesuai konfigurasi daemon Gradle; pilih JBR/JDK 25 di Android Studio. Peta memakai [artifact MapLibre OpenGL](https://maplibre.org/maplibre-native/android/examples/artifacts/), membutuhkan perangkat/AVD dengan [OpenGL ES 3.0](https://maplibre.org/maplibre-native/docs/book/platforms/index.html). Versi API Android saja tidak menjamin kemampuan GPU tersebut.
 
-### Bukti verifikasi lokal
+### Bukti verifikasi lokal terdahulu: fondasi Home/mitra
 
 - Satu skenario beranda/peta kosong dan delapan skenario data terisi berhasil **secara kumulatif** pada Android 24 x86 dengan GLES 3.0, Firebase Auth Emulator, handler Go produksi, dan PostgreSQL disposable bermigration 00001–00012. Tidak memakai akun/data Firebase atau Supabase cloud.
 - Cakupan: data Home/saldo/setoran bulanan/unread, nullable mitra/artikel, pencarian/filter/paging/detail mitra, kategori baru Tekstil, favorit lintas sesi dan isolasi akun, kegagalan jaringan tanpa Home palsu, UUID kartu Home → detail mitra/artikel, daftar/cursor/pencarian artikel, klaim/replay misi tanpa perubahan EcoPoints, serta beranda mitra verified dan pending tanpa logout.
 - Run awal menemukan kebutuhan renderer: artifact Vulkan gagal pada perangkat tanpa Vulkan; artifact OpenGL kemudian membutuhkan AVD GLES 3.0, bukan GLES 2.0. Peta akhirnya dirender dengan tile OpenStreetMap dan data mitra server. Selector uji UI diperbaiki untuk posisi scroll yang dipertahankan dan pemilihan daftar vertikal, bukan baris filter horizontal; navigasi artikel diuji ulang secara terarah. Tidak mengubah halaman/state untuk membuat test tampak berhasil.
 - Probe server development yang sedang berjalan: `/health` 200 dan tujuh GET untuk Home/partner Home/kategori/mitra/favorit/artikel/misi mengembalikan 401 tanpa token, sehingga route terdaftar dan terlindungi. Probe itu bukan bukti query database cloud atau login Firebase nyata dari Android.
 - Instrumentation test dan lingkungan fixture bersifat sementara dan dibersihkan setelah smoke; tidak ada `useEmulator` atau data fixture yang ditambahkan ke source aplikasi produksi. Tidak menjalankan ulang seluruh suite backend 46 operasi.
+
+### Paket lanjutan: implementasi dan handoff pengujian manual
+
+- Source integrasi lanjutan berhasil dibuild sebagai APK debug. Smoke Android lokal melaporkan lima skenario lulus: PATCH profil, email reset Firebase, inbox, FAQ/tiket, serta laporan/unduh PDF. Lingkungannya Firebase Auth Emulator + Go produksi + PostgreSQL disposable, bukan Firebase/Supabase cloud pengguna.
+- Run awal menemukan parsing QR yang menolak offset RFC 3339 `+07:00` pada Android 24. Parser diganti ke `OffsetDateTime`; hasil setoran selesai juga dipertahankan di penyimpanan sampai pengguna memilih **Buka Setoran**, bukan dihapus sebelum hasil diakui.
+- Pengulangan smoke terarah tidak selesai: runner tertahan pada skenario UI mitra pertama dan timeout. Pengujian otomatis kemudian dihentikan atas permintaan pemilik. **QR/setoran, reward/voucher, settings, badge/Games, pemulihan process-death, dan AI tidak dinyatakan lulus end-to-end.** File instrumentation sementara dibersihkan; pengujian lengkap diteruskan pemilik secara manual.
+- Masalah registrasi pada HP fisik memperlihatkan pesan BE tidak terhubung ketika FE masih memakai alamat emulator `10.0.2.2`. Konfigurasi lokal disiapkan untuk USB `127.0.0.1:8080`; jalur localhost/reverse terbukti `/health` 200 pada AVD. HP fisik terputus sebelum APK baru dan jalurnya dapat diverifikasi, jadi keberhasilan registrasi cloud belum dibuktikan. Hubungkan kembali, pasang `adb reverse` pada serial yang benar, lalu Run ulang.
+- Uji alur dua peran memakai dua perangkat/sesi: mitra terverifikasi membuat dan menampilkan QR, user memindai lalu mengklaim. Mitra baru tetap pending dan perlu persetujuan/pelengkapan lokasi oleh pemilik BE; Android tidak mempunyai tombol persetujuan. Periksa saldo/riwayat/inbox/misi setelah klaim, lalu reward/voucher, profil/settings, bantuan dan laporan. AI membutuhkan service terpisah aktif sebelum hasil model dapat diuji.
+
 
 
 
@@ -81,7 +90,7 @@ Status FE: login/registrasi memakai Firebase dan API akun; validator email/telep
 
 ### 2.2 Role dan mitra pending
 
-- `GET /me` → `role`: `user` → graph utama user; `mitra` → beranda akun/ringkasan mitra dengan akses telusur lokasi dan favorit. Graph mitra tidak membuka rute game/reward/klaim QR milik user; UI operasional pembuatan setoran/QR belum terhubung.
+- `GET /me` → `role`: `user` → graph utama user; `mitra` → graph operasional mitra dengan ringkasan, buat/riwayat/detail setoran, terbitkan/terbitkan ulang QR, estimasi, telusur/favorit, inbox, profil/settings, bantuan, dan laporan. Graph mitra tidak mendaftarkan rute game/reward/voucher/badge/klaim QR milik user.
 - Mitra baru: `business.status = "pending"`, belum punya lokasi: tampilkan banner "menunggu verifikasi". `GET /partner/home` dan pembuatan setoran/QR → 403 `deposit_forbidden`. Persetujuan dilakukan pemilik repo lewat CLI (D-21), bukan dari aplikasi; tidak ada polling khusus, cukup muat ulang `/me` saat layar dibuka.
 - Mitra dengan lokasi: `GET /partner/home` → `partner_status` (`verified`/`suspended`/`rejected`/`pending`). Bukan `verified`: riwayat tetap terbaca, pembuatan setoran/QR ditolak 403 `deposit_forbidden` (tampilkan status).
 - Mitra boleh: favorit, peta, settings, inbox, laporan, bantuan, riwayat setoran mitra. Mitra tidak boleh: klaim QR (`claim_forbidden`), reward (`redeem_forbidden`), dan seluruh misi/badge/leaderboard termasuk membaca (`gamification_forbidden`).
@@ -91,7 +100,7 @@ Status FE: login/registrasi memakai Firebase dan API akun; validator email/telep
 Fitur: settings di [accounts.md](accounts.md). FE: `OnboardingPreferences` (DataStore lokal), `Routes.ONBOARDING`.
 
 - Onboarding tampil sebelum login, jadi flag lokal tetap diperlukan. Server menyimpan `settings.onboarding_completed` (dari `GET /me` atau `GET /me/settings`) tetapi **tidak** menggerbang akses.
-- Rekomendasi: setelah sesi dan profil siap, jika server `false` dan lokal selesai → `PATCH /me/settings {"onboarding_completed":true}`; jika server `true`, tandai lokal selesai (perangkat baru tidak mengulang onboarding). Jangan mengirim field lain; kegagalan PATCH tidak memblokir pengguna.
+- FE menyinkronkan flag onboarding secara best-effort setelah sesi terautentikasi dan ketika profil dibuka: flag lokal selesai → server `onboarding_completed=true` bila belum. PATCH hanya mengirim field itu; kegagalan tidak memblokir sesi. Onboarding sebelum login tetap memakai preferensi lokal.
 - Aturan produk lanjutan untuk onboarding (Q-12) belum ditetapkan.
 
 ### 2.4 Beranda
@@ -123,7 +132,7 @@ Fitur: [point-estimates.md](point-estimates.md). `POST /point-estimates` `{items
 
 ### 2.7 Transaksi: setoran mitra, QR, klaim user
 
-Fitur: [deposits.md](deposits.md). FE: `ScanQrScreen`, `ScanSuccessScreen`, `LocalDeposits`, `Routes.SCAN_QR`, `SCAN_QR_RESULT`.
+Fitur: [deposits.md](deposits.md). FE: `DepositRepository`, `ScanQrRoute`, `DepositDetailRoute`, `PartnerDepositCreateRoute`, dan `PartnerDepositsRoute`. Pemindaian kamera/galeri memakai decoder QR; input kode manual tersedia. Decode hanya membuka preview, bukan otomatis mengklaim.
 
 **Mitra (membuat dan menerbitkan):**
 1. Susun item (kategori unik, berat string). Buat key, simpan persisten bersama isi (§1), `POST /deposits` → 201 (atau 200 ulangan). Simpan `data.id` sebagai ID setoran.
@@ -141,11 +150,11 @@ Fitur: [deposits.md](deposits.md). FE: `ScanQrScreen`, `ScanSuccessScreen`, `Loc
 5. Layar hasil (`Routes.scanQrResult(...)`): gunakan `deposit_id` (bukan token) sebagai ID; rincian lewat `GET /me/deposits/{deposit_id}`. Hapus token dari memori setelah layar hasil.
 6. Error: 404 `qr_invalid`, 410 `qr_expired`/`qr_revoked` (minta mitra menerbitkan ulang/menunjukkan QR terbaru), 409 `deposit_already_claimed`, 403 `claim_forbidden` (mitra), 401 (token dicabut/akun nonaktif).
 
-Perubahan FE: `LocalDeposits` menganggap isi QR sebagai ID transaksi lokal; ganti dengan dua panggilan di atas. Tidak ada UI mitra (setoran/QR) di FE saat ini.
+Status FE: `LocalDeposits` dan layar hasil lokal dihapus. Preview/klaim memakai server dan hasil dirutekan dengan UUID setoran, tanpa token pada URL. Form mitra menyimpan niat per UID sebelum POST; hasil belum diketahui dipulihkan dengan payload/key sama, hasil selesai dengan ID setoran. QR/token hanya di memori, warning selalu ditampilkan dan countdown memakai waktu monotonic.
 
 ### 2.8 Saldo, riwayat, reward, voucher
 
-Fitur: [wallet-history.md](wallet-history.md), [rewards.md](rewards.md). FE: `Routes.POINTS`, `HISTORY`, `PROFILE_ACTIVITY_HISTORY`, `PROFILE_REWARDS` (sebagian `ProfilePlaceholderScreen`).
+Fitur: [wallet-history.md](wallet-history.md), [rewards.md](rewards.md). FE: `PointsRoute`, `PointHistoryRoute`, `VoucherListRoute`, `VoucherDetailRoute`, serta `WalletRepository`; bukan lagi placeholder. Katalog/detail reward, konfirmasi tukar, filter/cursor riwayat/voucher, dan konfirmasi pemakaian voucher memakai server. Niat tukar disimpan per UID sebelum POST dan hasil belum diketahui tidak dibuang saat logout/proses mati.
 
 - Saldo: `GET /me/wallet`. Riwayat: `GET /me/point-history?type=deposit|redemption&from=&to=&limit=&cursor=`. Cursor buram, tidak disimpan lintas sesi, tidak dipakai ulang bila filter berubah (mulai dari halaman pertama). `+` pada offset waktu di-encode `%2B07:00`, atau pakai `Z`; `from` inklusif, `to` eksklusif; batas hari/bulan dihitung Android menurut zona pengguna. Entri `deposit` → detail `GET /me/deposits/{deposit.id}`; entri `redemption` bernilai negatif.
 - Reward: `GET /rewards` (`available=false` = stok habis; urut biaya termurah, maks. 100, tanpa pagination) dan `/rewards/{id}`.
@@ -154,13 +163,13 @@ Fitur: [wallet-history.md](wallet-history.md), [rewards.md](rewards.md). FE: `Ro
 
 ### 2.9 Misi, badge, leaderboard
 
-Fitur: [gamification.md](gamification.md). FE: kartu misi Home dan `MissionsRoute` memakai daftar/klaim server. `GamesHomeScreen`, `LocalLeaderboard`, badge/pencapaian dan mode leaderboard lain masih perlu integrasi terpisah.
+Fitur: [gamification.md](gamification.md). Home/misi, Games, badge/pencapaian, serta leaderboard memakai data server. Mini game tetap latihan offline: tidak mengirim skor atau memberi XP/EcoPoints/badge server karena endpoint-nya tidak tersedia.
 
 - `GET /me/missions`: katalog misi mingguan (Senin 00.00 WIB, akhir eksklusif). Sisa waktu = `period_end − server_time`. Progres per `unit`: `deposit` (jumlah) dan `gram` (3000 = 3 kg). Hadiah **XP**.
 - `status = claimable` → `POST /me/missions/{id}/claim {"period_start":"<nilai persis dari GET>"}`: 201 pertama, 200 ulangan, 410 `mission_expired` (periode berganti → muat ulang), 409 `mission_incomplete`. Simpan `period_start` selama proses klaim; retry memakai nilai yang sama.
 - Beranda hanya menampilkan satu misi dari katalog yang sama; pilihan misi adalah keputusan FE.
 - `GET /me/badges`: permanen dan otomatis (tanpa klaim). `GET /leaderboard?limit=`: XP mingguan, `me` bisa `null`; peringkat seri berperingkat sama (1,1,3); `photo_path` bisa `null` dan bukan URL penuh. `PATCH /me/leaderboard-visibility {"visible":bool}` (user saja).
-- Status FE: rute `MISSIONS` sudah terdaftar, progres kartu Home mengikuti unit server dan hadiah berlabel XP. Klaim memakai `period_start` yang sama untuk retry; saldo EcoPoints tidak ditambah lokal. Kartu Games yang masih lokal, badge, dan leaderboard tidak otomatis menjadi terintegrasi karena perubahan Home ini.
+- Status FE: daftar/klaim misi memakai periode server, badge memakai progres/earned aktual, dan kedua pintu leaderboard menampilkan **XP mingguan**, bukan peringkat setoran/skor game palsu. `LocalLeaderboard` dan kartu hadiah game tetap telah dihapus. Saldo EcoPoints tidak ditambah lokal.
 
 ### 2.10 Laporan dan PDF
 
@@ -180,14 +189,14 @@ Fitur: [notifications.md](notifications.md). FE: `Routes.NOTIFICATION` (lonceng 
 
 ### 2.12 Bantuan dan tiket
 
-Fitur: [support.md](support.md). FE: `Routes.HELP`, `PROFILE_HELP_CENTER`, `FaqItem`.
+Fitur: [support.md](support.md). FE: `SupportRoute` menangani FAQ, form, daftar dan detail tiket lewat state internal; pusat bantuan tidak lagi membaca FAQ lokal. Form memakai `PendingMutationStore` sebelum POST dan dapat memulihkan key/payload atau ID hasil yang sudah selesai.
 
 - `GET /help/faqs` (demo, plain text). Tiket: `POST /me/support-tickets` `{kind: problem|feedback, subject, message}` dengan key (§1); `GET /me/support-tickets?status=` dan detail untuk melihat balasan.
 - Tidak ada kontak publik, email, lampiran, push, atau janji waktu balasan. Balasan manual dibaca dengan membuka ulang daftar/detail; `staff_response=null` → "Belum ada balasan". Error: 400 `invalid_ticket`, 429 `ticket_limit_reached`, 413 bila >64 KiB.
 
 ### 2.13 Profil, pengaturan, logout
 
-Fitur: [accounts.md](accounts.md). FE: identitas profil berasal dari akun BE dan logout Firebase sudah aktif; state/back stack akun dibuang saat keluar. Edit profil, settings dan statistik yang belum tersambung tetap pekerjaan terpisah.
+Fitur: [accounts.md](accounts.md). FE: `ProfileRoute`, `AccountSettingsRoute`, `AccountSecurityRoute` dan `ProfileRepository` memuat ulang profil/statistik saat resume; edit nama/telepon memakai PATCH dan meminta refresh akun root setelah sukses. Settings menampilkan nilai server, write gagal mempertahankan nilai sebelumnya, dan logout Firebase membuang graph/state akun. Toggle/fitur yang tidak didukung server tidak dibuat seolah tersimpan.
 
 - Profil: `GET /me`; edit `PATCH /me` hanya `full_name` dan `phone` (field lain ditolak 400 `invalid_profile`/`invalid_request`). Statistik (`GreenStats`, semua String di FE; formatkan di UI): `ecoPoints` = `wallet.balance`; `totalDeposits` = `deposits_claimed` dari `/me/home` (**all-time**, bukan `monthly_deposits`; label "bulan ini" hanya untuk `monthly_deposits`); `totalBadges` = jumlah elemen `badges[]` dari `GET /me/badges` dengan `earned == true`, **bukan** panjang seluruh katalog. Mitra tidak memiliki statistik ini (`gamification_forbidden`); sembunyikan atau ganti dengan `/partner/home`.
 - Settings: `GET/PATCH /me/settings`: backend hanya menyimpan `notification_enabled` dan `onboarding_completed`; `show_on_leaderboard` ditulis lewat `/me/leaderboard-visibility`. Toggle notifikasi lain di UI tidak punya penyimpanan server.
@@ -209,21 +218,21 @@ Fitur: [articles.md](articles.md). FE: `ArticleListRoute`, `ArticleDetailRoute`,
 | Area | Status FE | Batas / langkah berikutnya |
 |---|---|---|
 | Dependency/jaringan | Firebase Auth, `BackendClient`, DTO/parser JSON, konfigurasi URL build dan cleartext debug per host | Token diambil dari SDK per request; satu refresh/replay pada 401, tanpa log token/body sensitif |
-| Auth | Login/registrasi, `GET /me`, `POST /accounts`, pemulihan profil, sesi dan logout tersambung | Reset password masih preview; tidak ada Google sign-in |
-| Navigasi per role | Graph user dan beranda/ringkasan/telusur mitra terpisah | Pembuatan setoran/QR mitra belum terhubung |
-| Onboarding | Preferensi lokal digunakan; sesi aktif dipulihkan tanpa mengulang onboarding | Sinkronisasi flag onboarding server belum dikerjakan |
+| Auth | Login/registrasi, pemulihan profil, sesi/logout dan pengiriman email reset Firebase nyata | Tidak ada Google sign-in atau form ubah password tanpa reset code |
+| Navigasi per role | Graph user dan operasional mitra terpisah | Pending/suspended tetap mengikuti izin server; persetujuan bukan dari Android |
+| Onboarding | Flag lokal sebelum login dan sinkronisasi selesai ke server secara best-effort | Bukan gerbang akses server; kebijakan produk lanjutan tetap Q-12 |
 | Beranda | `GET /me/home` dan `/partner/home`; kartu saldo/setoran/misi/mitra/artikel serta unread count memakai server | Loading/error/empty nyata; saran mitra bukan hasil GPS |
 | Peta/favorit | Kategori, daftar/filter/paging, detail UUID, dan favorit per akun tersambung | Tidak ada radius/GPS; peta perlu OpenGL ES 3.0 |
-| Transaksi | `LocalDeposits`/scan QR masih lokal; belum ada UI operasional mitra | §2.7 belum merupakan integrasi FE yang selesai |
-| Riwayat/reward/voucher | Placeholder | §2.8 |
-| Misi/badge/leaderboard | Home dan daftar/klaim misi tersambung | Badge, leaderboard, kartu Games dan skor game masih terpisah |
-| Laporan, bantuan, inbox | Placeholder/lokal; baru unread count Home yang terbaca | §2.10–2.12 |
+| Transaksi | Estimasi, create setoran mitra, issue/reissue QR, preview/klaim user dan detail/riwayat setoran memakai server | QR bearer hanya memori; mutasi create memakai niat/key persisten per UID |
+| Riwayat/reward/voucher | Saldo, cursor/filter riwayat, katalog/detail/tukar reward, daftar/detail/pakai voucher tersambung | Voucher simulasi; kode tidak disimpan/log; replay memakai key sama |
+| Misi/badge/leaderboard | Daftar/klaim, badge dan XP mingguan tersambung; Games menampilkan progres nyata | Game offline tidak mempunyai endpoint skor/hadiah |
+| Laporan, bantuan, inbox | JSON/PDF terautentikasi, FAQ/tiket, inbox cursor/unread/read/deep-link tersedia di FE | Tidak ada push/SLA; PDF perlu viewer eksternal atau aplikasi berbagi |
 | Artikel | Daftar/detail/pencarian/filter/cursor dari server; UUID kartu Home konsisten | Konten seed tetap berlabel demo |
-| Profil/logout | Nama/email/saldo akun dan logout nyata; statistik belum tersambung ditampilkan tidak tersedia | Edit profil/settings/statistik belum otomatis terintegrasi |
+| Profil/logout | Profil/statistik per role, PATCH nama/telepon, preferensi notifikasi/visibilitas dan logout tersambung | Tidak ada upload foto, penghapusan akun atau perubahan email server |
 
 ## 4. Belum tersedia atau ditunda
 
-Pada branch FE ini, scan AI, game dan XP/progres game, riwayat/reward/voucher, inbox, laporan, settings/bantuan, serta UI operasional setoran/QR mitra belum seluruhnya terhubung. Kontrak AI ada pada layanan terpisah/branch lain ([ai-scan.md](ai-scan.md)), bukan route Go. Push notification, upload media, banding/refund, penghapusan akun, admin/persetujuan mitra dari aplikasi, hosting publik dan HTTPS publik juga tetap di luar integrasi ini. Jangan menampilkannya sebagai sudah berfungsi end-to-end.
+Android kini mempunyai klien multipart scan AI tanpa fallback demo, tetapi AI memakai service FastAPI port 8000 terpisah pada branch `13-feat/ai-waste-scan` ([ai-scan.md](ai-scan.md)), bukan 46 operasi Go. Runtime/model nyata memerlukan service aktif dan credential provider di server; bukan API key di FE. Tidak ada endpoint riwayat scan, skor/hadiah game, push, upload foto profil, banding/refund, penghapusan akun atau persetujuan mitra dari Android. Hosting dan HTTPS publik juga belum disediakan. Bagian itu tidak dinyatakan sudah berfungsi end-to-end.
 
 ## 5. Arsip: audit frontend 17 November 2026
 
