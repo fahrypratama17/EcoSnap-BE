@@ -27,8 +27,8 @@ class ScanService:
         self.lock = asyncio.Lock()
         self.slots = asyncio.Semaphore(2)
 
-    async def analyze(self, image: bytes, client: str, scan_id: str) -> ScanResponse:
-        key = (client, scan_id)
+    async def analyze(self, image: bytes, uid: str, scan_id: str) -> ScanResponse:
+        key = (uid, scan_id)
         digest = hashlib.sha256(image).hexdigest()
         async with self.lock:
             now = time.monotonic()

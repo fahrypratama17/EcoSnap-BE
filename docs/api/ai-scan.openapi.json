@@ -3,7 +3,7 @@
   "info": {
     "title": "EcoSnap Waste Analysis API (AI scan service)",
     "version": "0.1.0",
-    "description": "Kontrak layanan FastAPI mandiri di ai-service/ EcoSnap-BE (port 8000), dipindahkan dari EcoSnap-FE commit 4310cd7dac442b71130f375ab61a4025d298686c. Ini BUKAN bagian dari 46 rute Go port 8080. Layanan tidak menegakkan autentikasi Firebase Bearer; gunakan lokal sampai deployment diautentikasi dan diamankan. Runtime menyajikan kontrak ini melalui /openapi.json agar Swagger menampilkan multipart image, X-Scan-Id dan seluruh error. Pengujian memakai provider sintetis, bukan bukti key, kuota atau akurasi model Groq nyata.",
+    "description": "Service FastAPI ai-service/ EcoSnap-BE. POST /api/scan memerlukan Firebase ID token melalui Authorization Bearer; health dan dokumentasi publik. Token diverifikasi sebelum upload/inferensi; cache dan kuota dipisahkan berdasarkan UID terverifikasi. Nginx lab meneruskan /api/scan ke localhost8000 dan /api/v1/* ke Go8080. HTTP lab hanya demo internal sementara: token/foto tidak terenkripsi; gunakan HTTPS sebelum publik. Groq key hanya di server.",
     "x-source": {
       "repository": "https://github.com/fahrypratama17/EcoSnap-FE",
       "branch": "13-feat/ai-waste-scan",
@@ -52,7 +52,10 @@
       "post": {
         "operationId": "scanWaste",
         "summary": "Analisis satu foto sampah",
-        "description": "Kirim tepat satu file pada field multipart `image` (JPEG, PNG, atau WebP statis; maks 10 MiB; maks 25 megapiksel). Tidak ada field lain. `X-Scan-Id` opsional (UUID); bila tidak ada, server membuat UUID acak. Idempotensi di RAM per (IP klien, X-Scan-Id) dengan hash SHA-256 byte gambar: permintaan bersamaan berbagi satu inferensi, hasil sukses disimpan hingga 600 detik sejak dibuat (maks 64 entri), ID yang sama dengan gambar berbeda menghasilkan 409. Tidak tahan restart dan tidak dibagi antar worker. Batas: 6 permintaan/IP/menit, 30 global/menit, 4 unggahan diterima serentak, 2 pemrosesan serentak. Memanggil Groq sungguhan (dapat memakai kuota/biaya).",
+        "security": [
+          { "FirebaseBearer": [] }
+        ],
+        "description": "Kirim tepat satu file image (JPEG/PNG/WebP statis, maks10MiB dan25MP) dengan Firebase ID token. X-Scan-Id opsional UUID. Idempotensi RAM per UID+X-Scan-Id dan hash foto, hingga600detik sejak dibuat, maks64entri; 6request/UID/menit,30global/menit,4upload,2processing. Token invalid/missing401 sebelum membaca upload. Firebase tidak tersedia503auth_unavailable. Tidak ada riwayat permanen/wallet. Inferensi Groq dapat memakai biaya/kuota.",
         "parameters": [
           {
             "name": "X-Scan-Id",
@@ -213,6 +216,9 @@
           "400": {
             "$ref": "#/components/responses/Error400"
           },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
           "408": {
             "$ref": "#/components/responses/Error408"
           },
@@ -245,6 +251,14 @@
     }
   },
   "components": {
+    "securitySchemes": {
+      "FirebaseBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Firebase ID token",
+        "description": "Token login Firebase Android dari project yang sama dengan service-account server; bukan key Groq atau Firebase custom token."
+      }
+    },
     "schemas": {
       "ScanResponse": {
         "additionalProperties": false,
@@ -695,6 +709,8 @@
               "code": {
                 "type": "string",
                 "enum": [
+                  "unauthorized",
+                  "auth_unavailable",
                   "invalid_upload",
                   "invalid_scan_id",
                   "missing_image",
@@ -744,6 +760,19 @@
       }
     },
     "responses": {
+      "Error401": {
+        "description": "Firebase ID token hilang, salah format, invalid atau kedaluwarsa; tidak ada inferensi.",
+        "headers": {
+          "Cache-Control": { "$ref": "#/components/headers/CacheControl" },
+          "WWW-Authenticate": { "schema": { "type": "string", "const": "Bearer" } }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": { "error": { "code": "unauthorized", "message": "Masuk terlebih dahulu untuk menggunakan pemindaian." } }
+          }
+        }
+      },
       "Error400": {
         "description": "Permintaan multipart/ID pemindaian tidak valid. Catatan: rute atau metode tak dikenal dan error validasi FastAPI juga dipetakan ke `invalid_upload` oleh handler.",
         "headers": {
@@ -1010,7 +1039,7 @@
         }
       },
       "Error503": {
-        "description": "Layanan sibuk, belum dikonfigurasi, kunci/model provider bermasalah, atau jaringan ke provider gagal. `Retry-After` hanya dikirim untuk `busy` (5).",
+        "description": "Layanan sibuk, konfigurasi/provider bermasalah atau verifikasi Firebase tidak tersedia (auth_unavailable). Retry-After 5 untuk busy/auth_unavailable.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/CacheControl"
@@ -1025,6 +1054,10 @@
               "$ref": "#/components/schemas/ErrorResponse"
             },
             "examples": {
+              "auth_unavailable": {
+                "summary": "auth_unavailable",
+                "value": { "error": { "code": "auth_unavailable", "message": "Layanan autentikasi sedang tidak tersedia. Coba lagi sebentar." } }
+              },
               "busy": {
                 "summary": "busy",
                 "value": {

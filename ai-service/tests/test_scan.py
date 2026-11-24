@@ -14,11 +14,12 @@ from PIL import Image
 from pydantic import ValidationError
 
 from app.images import MAX_IMAGE_BYTES, optimize_image
-from app.main import create_app
+from app.main import create_app as build_app
 from app.provider import GroqWasteAnalyzer
 from app.schema import ScanResponse
 from app.service import ScanService
 from app.settings import Settings
+from support import FakeVerifier, auth_headers
 
 
 @pytest.fixture
@@ -46,8 +47,14 @@ def provider(handler, key="test-key-not-a-credential"):
     return GroqWasteAnalyzer(Settings(api_key=key), httpx.AsyncClient(transport=httpx.MockTransport(handler)), sleep=no_sleep)
 
 
-def upload(client, photo, scan_id=None):
-    return client.post("/api/scan", files={"image": ("pretend.exe", photo, "application/octet-stream")}, headers={"X-Scan-Id": scan_id or str(uuid4())})
+def create_app(**kwargs):
+    # Auth stays mandatory; the fixed verifier only replaces Firebase network verification.
+    return build_app(token_verifier=FakeVerifier(), **kwargs)
+
+
+def upload(client, photo, scan_id=None, uid="user-a", **headers):
+    return client.post("/api/scan", files={"image": ("pretend.exe", photo, "application/octet-stream")},
+                       headers={"X-Scan-Id": scan_id or str(uuid4()), **auth_headers(uid), **headers})
 
 
 @pytest.mark.parametrize("object_name,material,category,recycling,hazardous", [
@@ -185,13 +192,13 @@ def test_transient_retry_is_bounded_and_honors_delay(bottle, photo, status):
 @pytest.mark.parametrize("data", [b"<svg></svg>", b"not-an-image", b"\x89PNG\r\n\x1a\nbroken"])
 def test_content_not_filename_validated(data):
     with TestClient(create_app(analyzer=provider(lambda request: pytest.fail("invalid image reached provider")))) as client:
-        response = client.post("/api/scan", files={"image": ("safe.jpg", data, "image/jpeg")})
+        response = client.post("/api/scan", files={"image": ("safe.jpg", data, "image/jpeg")}, headers=auth_headers())
     assert response.status_code == 415
 
 
 def test_size_limit_precedes_processing(photo, monkeypatch):
     with TestClient(create_app()) as client:
-        response = client.post("/api/scan", content=b"unused", headers={"content-length": str(MAX_IMAGE_BYTES + 65537)})
+        response = client.post("/api/scan", content=b"unused", headers={"content-length": str(MAX_IMAGE_BYTES + 65537), **auth_headers()})
     assert response.status_code == 413
     monkeypatch.setattr("app.images.MAX_IMAGE_PIXELS", 100)
     with pytest.raises(Exception) as error:

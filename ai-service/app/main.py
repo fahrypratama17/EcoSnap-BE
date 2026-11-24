@@ -13,6 +13,7 @@ from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException
 from starlette.responses import JSONResponse
 
+from .auth import FirebaseTokenVerifier, TokenVerifier, bearer_token
 from .errors import ScanError
 from .images import MAX_IMAGE_BYTES
 from .provider import GroqWasteAnalyzer, WasteAnalyzer
@@ -27,14 +28,17 @@ def error_response(error: ScanError):
     headers = {"Cache-Control": "no-store"}
     if error.retry_after:
         headers["Retry-After"] = str(error.retry_after)
+    if error.status == 401:
+        headers["WWW-Authenticate"] = "Bearer"
     return JSONResponse({"error": {"code": error.code, "message": error.message}}, error.status, headers=headers)
 
 
 class ScanProtection:
     """Single-worker admission control, before multipart parsing or image decoding."""
 
-    def __init__(self, app, requests_per_minute=6):
+    def __init__(self, app, verifier: TokenVerifier, requests_per_minute=6):
         self.app = app
+        self.verifier = verifier
         self.limit = requests_per_minute
         self.clients = {}
         self.global_requests = deque()
@@ -43,10 +47,17 @@ class ScanProtection:
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http" or scope["path"] != "/api/scan" or scope["method"] != "POST":
             return await self.app(scope, receive, send)
+        # Authenticate first: no body is read and no admission slot is used for rejected callers.
+        try:
+            headers = dict(scope.get("headers", []))
+            token = bearer_token(headers.get(b"authorization", b"").decode("latin-1") or None)
+            uid = await self.verifier.verify(token)
+        except ScanError as error:
+            return await error_response(error)(scope, receive, send)
+        scope.setdefault("state", {})["uid"] = uid
         now = time.monotonic()
-        self.clients = {ip: times for ip, times in self.clients.items() if times and times[-1] > now - 60}
-        ip = (scope.get("client") or ("unknown", 0))[0]
-        times = self.clients.setdefault(ip, deque())
+        self.clients = {key: times for key, times in self.clients.items() if times and times[-1] > now - 60}
+        times = self.clients.setdefault(uid, deque())
         while times and times[0] <= now - 60:
             times.popleft()
         while self.global_requests and self.global_requests[0] <= now - 60:
@@ -60,7 +71,6 @@ class ScanProtection:
         self.active += 1
         try:
             limit = MAX_IMAGE_BYTES + 65536
-            headers = dict(scope.get("headers", []))
             try:
                 length = int(headers.get(b"content-length", b"0"))
             except ValueError:
@@ -95,7 +105,7 @@ class ScanProtection:
             self.active -= 1
 
 
-def create_app(settings: Settings | None = None, analyzer: WasteAnalyzer | None = None, requests_per_minute: int = 6):
+def create_app(settings: Settings | None = None, analyzer: WasteAnalyzer | None = None, requests_per_minute: int = 6, token_verifier: TokenVerifier | None = None):
     settings = settings or Settings.from_env()
 
     @asynccontextmanager
@@ -115,7 +125,7 @@ def create_app(settings: Settings | None = None, analyzer: WasteAnalyzer | None 
         return contract
 
     app.openapi = contract_openapi
-    app.add_middleware(ScanProtection, requests_per_minute=requests_per_minute)
+    app.add_middleware(ScanProtection, verifier=token_verifier or FirebaseTokenVerifier(), requests_per_minute=requests_per_minute)
 
     @app.exception_handler(ScanError)
     async def scan_error(request, error):
@@ -151,7 +161,7 @@ def create_app(settings: Settings | None = None, analyzer: WasteAnalyzer | None 
             raise ScanError(415, "unsupported_image", "File gambar kosong. Pilih foto yang valid.")
         if len(data) > MAX_IMAGE_BYTES:
             raise ScanError(413, "image_too_large", "Gunakan gambar berukuran maksimal 10 MB.")
-        result = await request.app.state.scans.analyze(data, request.client.host if request.client else "unknown", scan_id)
+        result = await request.app.state.scans.analyze(data, request.state.uid, scan_id)
         return JSONResponse(result.model_dump(mode="json"), headers={"Cache-Control": "no-store"})
 
     return app
