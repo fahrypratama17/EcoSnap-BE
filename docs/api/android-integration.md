@@ -232,9 +232,41 @@ Fitur: [articles.md](articles.md). FE: `ArticleListRoute`, `ArticleDetailRoute`,
 | Artikel | Daftar/detail/pencarian/filter/cursor dari server; UUID kartu Home konsisten | Konten seed tetap berlabel demo |
 | Profil/logout | Profil/statistik per role, PATCH nama/telepon, preferensi notifikasi/visibilitas dan logout tersambung | Tidak ada upload foto, penghapusan akun atau perubahan email server |
 
+### 3.1 Cakupan UI lintas branch frontend
+
+Inventaris membandingkan tip GitHub branch `00`–`13`, `dev`, dan `main`, bukan hanya cached `origin/*` lokal. Sumber desain yang sebelumnya terlewat: `12-feat/admin` (`316e390`), `11-feat/points` (`e71e050`), `13-feat/ai-waste-scan` (`4310cd7`), serta podium/peringkat dari `07-feat/leaderboard` (`428bb24`). Desain dipakai ulang dengan state/repository BE saat ini; tidak mengembalikan transaksi, saldo, ranking, atau respons AI palsu.
+
+| UI sumber | Layar/alur integrasi dan keputusan |
+|---|---|
+| Design system, splash, onboarding | Theme/Eco controls tetap dipakai; splash/onboarding dirender langsung dari state sesi |
+| Login, register, forgot/check email | Firebase + akun BE; status email terkirim berada dalam layar reset yang sama |
+| New password | Ditangani tautan reset resmi Firebase, bukan form sukses palsu tanpa action code |
+| Bantuan sebelum login | Petunjuk akun; pusat bantuan/tiket milik akun dibuka setelah login |
+| Beranda user, misi | Data Home server; aksi saldo, scan, peta, riwayat, artikel, misi, inbox dan profil tetap terhubung |
+| Peta dan detail mitra | Dipakai kedua role; pencarian/filter/favorit/detail/kontak/arah memakai data server |
+| Daftar dan detail artikel | Pencarian/filter/cursor/UUID server; bukan artikel lokal |
+| Games home, katalog, detail, main, hasil | Hasil game dirender **inline** oleh `GamePlayScreen`, bukan rute yang hilang. Mini game tetap latihan offline tanpa XP server |
+| Leaderboard, podium, ranking, posisi sendiri | Desain podium/kartu asli dipulihkan memakai rank/XP server dan kondisi seri; kedua pintu lama menuju XP mingguan, tanpa mode setoran/skor game fiktif |
+| Kamera/galeri, review, hasil AI | Kamera → **Konfirmasi Foto Sampah** → Analisis Foto → hasil/error. Tidak mengunggah ke AI sebelum konfirmasi; retake/cancel membersihkan salinan cache milik aplikasi |
+| Scan QR, preview, hasil transaksi | Decoder nyata → preview BE → konfirmasi klaim → detail setoran server; komponen poin/item menggantikan hasil transaksi lokal |
+| Poin/reward dan detail/konfirmasi tukar | Hero saldo, ilustrasi, aksi Scan QR/Kalkulator, katalog dua kolom dan detail mengikuti desain branch poin; saldo/stok/penukaran nyata |
+| Kategori/promo reward lama | Tidak dikembalikan sebagai data palsu. Katalog dikelompokkan berdasarkan stok dan kecukupan saldo aktual, dengan angka kekurangan poin; banner menjelaskan voucher simulasi |
+| Voucher, riwayat poin | Daftar/filter/cursor, detail dan pemakaian voucher; deep-link riwayat menuju ID setoran/voucher server |
+| Profil, pengaturan, akun/keamanan | Profil/statistik per role, PATCH nama/telepon, preferensi notifikasi/visibilitas dan email reset; bukan toggle lokal |
+| Help center/FAQ, form/daftar/detail tiket | `SupportRoute` menggantikan FAQ lokal dengan FAQ/tiket/balasan server; beberapa layar memakai state internal, bukan rute mati |
+| Laporan/PDF, pencapaian/badge, inbox | Rute laporan dua role, badge user-only, inbox dua role dengan read/deep-link |
+| AdminWorkspace/MitraScaffold | Dipulihkan sebagai `PartnerTabScaffold`: header aplikasi dan tab **Beranda · QR · Kalkulator**. Folder sumber “admin” adalah workspace mitra, bukan role admin baru |
+| AdminHome | Layout PANEL MITRA, kartu Menu Utama dan Cara Kerja dipulihkan; identitas/status/ringkasan/recent deposits tetap dari BE |
+| AdminCalculator | Layout kalkulator/hero input dipulihkan; beberapa kategori/berat dan tarif server. Setelah estimasi, **Lanjut Buat QR** membawa kategori/berat ke form setoran tanpa membawa saldo/tarif/poin buatan klien |
+| GenerateQr | Form → POST setoran idempotent → Buka Setoran → issue/reissue QR. Pending intent selalu mendahului draft kalkulator; token/warning/countdown berasal dari BE, TTL 10 menit |
+| Riwayat/antrean setoran mitra | Tab QR membuka daftar/pilih setoran dan aksi buat baru, **tidak** membuat transaksi atau menerbitkan QR hanya karena tab ditekan |
+| Profil/pelengkapan sesi gagal | Pemulihan profil dan sesi unavailable tetap tersedia; back stack/state dipisahkan per UID dan role |
+
+Ketercakupan layar/rute dan kesesuaian desain bukan bukti seluruh fitur cloud lolos end-to-end. Tidak ada endpoint server untuk skor/hadiah game, ranking setoran/game, kategori/promo reward lama, upload foto profil, penghapusan akun, push, refund/banding, riwayat scan AI, maupun persetujuan mitra melalui dashboard. Google sign-in juga belum dikonfigurasi. Kontrol yang tidak didukung tidak boleh mengaku menyimpan atau memberi hadiah.
+
 ## 4. Belum tersedia atau ditunda
 
-Android kini mempunyai klien multipart scan AI tanpa fallback demo, tetapi AI memakai service FastAPI port 8000 terpisah pada branch `13-feat/ai-waste-scan` ([ai-scan.md](ai-scan.md)), bukan 46 operasi Go. Runtime/model nyata memerlukan service aktif dan credential provider di server; bukan API key di FE. Tidak ada endpoint riwayat scan, skor/hadiah game, push, upload foto profil, banding/refund, penghapusan akun atau persetujuan mitra dari Android. Hosting dan HTTPS publik juga belum disediakan. Bagian itu tidak dinyatakan sudah berfungsi end-to-end.
+Android mempunyai klien multipart scan AI tanpa fallback demo; service FastAPI port 8000 kini tersedia di `EcoSnap-BE/ai-service/` ([ai-scan.md](ai-scan.md)), terpisah dari 46 operasi Go. Runtime/model nyata memerlukan service aktif dan credential provider di server; bukan API key di FE. Tidak ada endpoint riwayat scan, skor/hadiah game, push, upload foto profil, banding/refund, penghapusan akun atau persetujuan mitra dari Android. Hosting dan HTTPS publik juga belum disediakan. Bagian itu tidak dinyatakan sudah berfungsi end-to-end.
 
 ## 5. Arsip: audit frontend 17 November 2026
 
