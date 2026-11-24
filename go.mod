@@ -6,6 +6,7 @@ require (
 	firebase.google.com/go/v4 v4.22.0
 	github.com/go-pdf/fpdf v0.9.0
 	github.com/jackc/pgx/v5 v5.12.0
+	github.com/joho/godotenv v1.5.1
 	golang.org/x/image v0.48.0
 )
 

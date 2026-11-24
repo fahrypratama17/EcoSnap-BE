@@ -205,6 +205,25 @@ Backend Go belum menyediakan endpoint scan/foto sampah; implementasi AI dan kont
 
 ## 8. Menjalankan dan menguji backend
 
+### Konfigurasi lokal tanpa set environment manual
+
+Jalankan `go run ./cmd/app` dari **root EcoSnap-BE**. Startup memuat `.env` di working directory sebelum membuka PostgreSQL dan Firebase; tidak mencari file di parent dan tidak memuat `.env.example`. File `.env` lokal diabaikan Git. Isi dengan nilai lokal sendiri:
+
+```dotenv
+HTTP_ADDR=127.0.0.1:8080
+DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD_URL_ENCODED@HOST_POOLER:5432/postgres?sslmode=require"
+GOOGLE_APPLICATION_CREDENTIALS="C:/lokasi-di-luar-repo/firebase-admin.json"
+GOOSE_DRIVER=postgres
+GOOSE_DBSTRING=${DATABASE_URL}
+GOOSE_MIGRATION_DIR=database/migrations
+```
+
+Ganti placeholder URL/path dengan nilai asli; jangan commit file atau service-account JSON. Gunakan `/` pada path Windows yang dikutip dan URL-encode karakter khusus password database. `HTTP_ADDR` opsional (default loopback); untuk HP fisik melalui LAN gunakan `0.0.0.0:8080`, firewall yang sesuai dan IP laptop di Android.
+
+Environment proses yang sudah ada **selalu menang**, termasuk nilai kosong; pakai terminal baru jika masih ada `$env:DATABASE_URL` lama. `.env` boleh tidak ada untuk deployment yang sudah memasok environment. File yang ada tetapi tidak bisa dibaca/di-parse menghentikan startup dengan pesan generik tanpa isi credential. Loader aplikasi menerima UTF-8 dengan/tanpa BOM dan interpolasi `${DATABASE_URL}`; simpan **UTF-8 tanpa BOM** agar kompatibel dengan Goose. Restart server setelah mengubah `.env`; tidak ada hot reload.
+
+Goose membaca `.env` sendiri: `goose -env .env status` (hanya cek status), lalu `goose -env .env up` hanya jika migration masih pending dan database development sudah dipastikan benar. Goose tidak mengekspor variabel ke terminal induk. CLI seed/verifikasi mitra/tiket dan script smoke **tidak** mendapatkan loader baru; mereka tetap mengikuti konfigurasi masing-masing. Groq/Qwen tetap service Python terpisah, bukan variabel wajib Go.
+
 Kontrak di atas bisa dicoba tanpa Android: ikuti [Runbook Supabase](../supabase-migration-runbook.md) lalu jalankan `./scripts/smoke-test.ps1 -ApiKey <Firebase Web API Key>`. Akun uji: `mitra.demo@ecosnap.test` dan `user.demo@ecosnap.test` (password dipegang pemilik repo).
 
 Mode smoke tambahan:
@@ -280,7 +299,7 @@ Server membuka listener sebelum mencetak alamat listening, sehingga port bentrok
 
 Default pool per proses adalah maksimum 4 koneksi, minimum 0, lifetime 30 menit, idle 5 menit, health check 1 menit, connect timeout 10 detik, dan startup/ping dibatasi 10 detik. Angka ini anggaran awal demo, bukan kuota Supabase atau jaminan kapasitas. Setiap laptop/CLI/proses memakai pool sendiri; hitung total proses sebelum menaikkan batas.
 
-Konfigurasi eksplisit memakai opsi native pgx pada `DATABASE_URL`, misalnya `&pool_max_conns=4&pool_min_conns=0&pool_max_conn_lifetime=30m&pool_max_conn_idle_time=5m&pool_health_check_period=1m&connect_timeout=10` jika URL sudah mempunyai `?sslmode=require`. Health check harus positif; lifetime/idle tidak boleh negatif. Nilai lifetime/idle nol diteruskan sesuai perilaku pgx, bukan dijanjikan sebagai “unlimited”. `connect_timeout` positif mengganti default; nol/tidak diisi memakai 10 detik, dan startup tetap dibatasi context 10 detik. Jangan menyalin URL asli ke chat/log/Git. Credential tetap di environment dan file `.env.example` tidak otomatis dimuat aplikasi.
+Konfigurasi eksplisit memakai opsi native pgx pada `DATABASE_URL`, misalnya `&pool_max_conns=4&pool_min_conns=0&pool_max_conn_lifetime=30m&pool_max_conn_idle_time=5m&pool_health_check_period=1m&connect_timeout=10` jika URL sudah mempunyai `?sslmode=require`. Health check harus positif; lifetime/idle tidak boleh negatif. Nilai lifetime/idle nol diteruskan sesuai perilaku pgx, bukan dijanjikan sebagai “unlimited”. `connect_timeout` positif mengganti default; nol/tidak diisi memakai 10 detik, dan startup tetap dibatasi context 10 detik. Jangan menyalin URL asli ke chat/log/Git. Server memuat `.env` lokal otomatis; `.env.example` tetap tidak pernah dimuat.
 
 Header timeout 5 detik, read timeout 15 detik, write timeout 30 detik, idle timeout 60 detik, batas header 16 KiB. Request ID/logging/panic recovery tidak menambahkan buffering PDF atau mengubah saldo. Panic sebelum respons dimulai menghasilkan 500 generik; setelah respons dimulai koneksi dibatalkan, bukan menambahkan JSON ke file unduhan.
 

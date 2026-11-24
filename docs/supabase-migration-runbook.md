@@ -7,7 +7,9 @@ Dijalankan oleh pemilik repo. AI tidak membaca credential dan tidak mengeksekusi
 - Pastikan project yang dipakai adalah **development**, bukan production.
 - Ambil connection string **direct** (port 5432) atau **session pooler** dari Supabase → Project Settings → Database. Jangan pakai transaction pooler (port 6543) untuk migration.
 - Untuk server aplikasi juga pakai 5432/session pooler. Jika terpaksa 6543, backend otomatis beralih ke mode query tanpa prepared statement (sedikit lebih lambat); migration tetap wajib lewat 5432.
-- Simpan di environment shell saja, jangan di file yang di-commit:
+- Untuk server Go dan Goose, gunakan `.env` lokal di root repo sesuai [konfigurasi lokal](api/README.md#konfigurasi-lokal-tanpa-set-environment-manual). Isi `DATABASE_URL`, path `GOOGLE_APPLICATION_CREDENTIALS`, serta `GOOSE_DRIVER=postgres`, `GOOSE_DBSTRING=${DATABASE_URL}` dan `GOOSE_MIGRATION_DIR=database/migrations`. Simpan UTF-8 tanpa BOM. Server cukup `go run ./cmd/app`; `.env` tidak di-commit.
+- Buka terminal baru jika environment lama masih terpasang: environment proses selalu diprioritaskan dibanding `.env`. Restart server setelah mengubah file.
+- **Khusus CLI seed/verifikasi/tiket pada bagian 3–4**, `DATABASE_URL` tetap harus ada di environment shell; loader baru hanya untuk startup server, sedangkan Goose memuat file sendiri. Jangan menyimpan nilai asli di file yang di-commit:
 
 ```powershell
 $env:DATABASE_URL = "postgresql://postgres:<password>@<host>:5432/postgres?sslmode=require"
@@ -18,7 +20,7 @@ $env:DATABASE_URL = "postgresql://postgres:<password>@<host>:5432/postgres?sslmo
 ## 1. Cek status Goose
 
 ```powershell
-goose -dir database/migrations postgres $env:DATABASE_URL status
+goose -env .env status
 ```
 
 Kondisi terakhir yang dilaporkan: `00001`–`00012` **Applied**. `00010_create_gamification.sql` menambah tabel `mission_claims` dan trigger immutable pada `mission_claims` dan `deposit_claims`. Jangan menjalankan ulang SQL migration secara manual; gunakan Goose.
@@ -32,8 +34,8 @@ Kondisi terakhir yang dilaporkan: `00001`–`00012` **Applied**. `00010_create_g
 ## 2. Terapkan migration
 
 ```powershell
-goose -dir database/migrations postgres $env:DATABASE_URL up
-goose -dir database/migrations postgres $env:DATABASE_URL status
+goose -env .env up
+goose -env .env status
 ```
 
 Setelah memperbarui backend, target terbaru adalah `00001`–`00012` Applied. Setiap file berjalan dalam transaksinya sendiri; jika satu gagal, file itu tidak setengah jadi, catat pesan error-nya. Migration baru tidak memasukkan notifikasi dari transaksi lama dan tidak memerlukan seed baru.
@@ -74,13 +76,13 @@ go run ./cmd/verify-partner set-status --confirm --mitra-uid <UID> --status susp
 
 ## 5. Setelah selesai
 
-- Hapus `$env:DATABASE_URL` dari shell.
+- Jika sebelumnya menyetel `$env:DATABASE_URL` untuk CLI, hapus dari shell setelah selesai; file `.env` lokal tetap disimpan untuk startup server berikutnya.
 - Catat di `BUILD_PROCESS.md` (DATA-02): tanggal, output `goose status`, dan seed yang dijalankan.
 - Mulai sekarang migration yang sudah Applied **tidak boleh diedit**; perubahan schema selalu lewat file migration baru.
 
 ## 6. Smoke test dengan Firebase nyata
 
-Prasyarat: server berjalan (`go run ./cmd/app` dengan `DATABASE_URL` dan `GOOGLE_APPLICATION_CREDENTIALS`), seed sudah dijalankan, satu akun mitra (lokasi verified) dan satu akun user sudah didaftarkan lewat `POST /api/v1/accounts`.
+Prasyarat: server berjalan (`go run ./cmd/app` dari root dengan `DATABASE_URL` dan `GOOGLE_APPLICATION_CREDENTIALS` di `.env` lokal atau environment proses), seed sudah dijalankan, satu akun mitra (lokasi verified) dan satu akun user sudah didaftarkan lewat `POST /api/v1/accounts`.
 
 ```powershell
 ./scripts/smoke-test.ps1 -ApiKey <Firebase Web API Key>
@@ -96,7 +98,7 @@ Laporan 36 PASS sebelumnya adalah versi tanpa gamifikasi. Jangan menyebut smoke 
 
 ## 7. Smoke pengaturan akun saja
 
-Restart backend dari terminal yang sudah memiliki `DATABASE_URL` dan `GOOGLE_APPLICATION_CREDENTIALS` (`Ctrl+C`, lalu `go run ./cmd/app`). Endpoint settings tidak memerlukan migration tambahan; server lama tetap akan mengembalikan 404 sampai direstart.
+Restart backend dari root repo (`Ctrl+C`, lalu `go run ./cmd/app`); konfigurasi dibaca ulang dari `.env` lokal atau environment proses yang lebih diprioritaskan. Endpoint settings tidak memerlukan migration tambahan; server lama tetap akan mengembalikan 404 sampai direstart.
 
 ```powershell
 ./scripts/smoke-test.ps1 -ApiKey <Firebase Web API Key> -SettingsOnly
