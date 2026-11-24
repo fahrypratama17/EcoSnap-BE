@@ -1,0 +1,1105 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "EcoSnap Waste Analysis API (AI scan service)",
+    "version": "0.1.0",
+    "description": "Kontrak layanan FastAPI mandiri (port 8000) milik tim AI, diekspor dari implementasi pada commit 9dad3cb5ff06f4c009c2a48af25b70c3f4a1f8ab (https://github.com/fahrypratama17/EcoSnap-FE/tree/9dad3cb5ff06f4c009c2a48af25b70c3f4a1f8ab/backend). Ini BUKAN bagian dari 46 rute Go EcoSnap-BE. Layanan tidak menegakkan autentikasi Firebase Bearer. Runtime memakai `request.form` manual sehingga OpenAPI otomatis FastAPI (/openapi.json) tidak memuat requestBody, header X-Scan-Id, maupun error; dokumen ini sengaja mendokumentasikannya dari implementasi. Verifikasi lokal: struktur OpenAPI 3.1, 6 skema cocok dengan Pydantic sumber, 24 contoh respons, dan 18 skenario HTTP FastAPI lulus menggunakan fixture inferensi; tidak ada panggilan live Groq atau verifikasi kualitas model.",
+    "x-source": {
+      "repository": "https://github.com/fahrypratama17/EcoSnap-FE",
+      "branch": "13-feat/ai-waste-scan",
+      "commit": "9dad3cb5ff06f4c009c2a48af25b70c3f4a1f8ab"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8000",
+      "description": "Lokal, hanya pengembangan"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "Layanan hidup.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "const": "ok"
+                    }
+                  }
+                },
+                "example": {
+                  "status": "ok"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scan": {
+      "post": {
+        "operationId": "scanWaste",
+        "summary": "Analisis satu foto sampah",
+        "description": "Kirim tepat satu file pada field multipart `image` (JPEG, PNG, atau WebP statis; maks 10 MiB; maks 25 megapiksel). Tidak ada field lain. `X-Scan-Id` opsional (UUID); bila tidak ada, server membuat UUID acak. Idempotensi di RAM per (IP klien, X-Scan-Id) dengan hash SHA-256 byte gambar: permintaan bersamaan berbagi satu inferensi, hasil sukses disimpan hingga 600 detik sejak dibuat (maks 64 entri), ID yang sama dengan gambar berbeda menghasilkan 409. Tidak tahan restart dan tidak dibagi antar worker. Batas: 6 permintaan/IP/menit, 30 global/menit, 4 unggahan diterima serentak, 2 pemrosesan serentak. Memanggil Groq sungguhan (dapat memakai kuota/biaya).",
+        "parameters": [
+          {
+            "name": "X-Scan-Id",
+            "in": "header",
+            "required": false,
+            "description": "UUID idempotensi. Tidak valid -> 400 invalid_scan_id. Gunakan UUID baru untuk setiap pemindaian baru.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "6e759542-b5b7-4361-83c9-15e1bdb591fc"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "image"
+                ],
+                "properties": {
+                  "image": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Tepat satu file gambar JPEG, PNG, atau WebP statis (bukan HEIC/animasi)."
+                  }
+                }
+              },
+              "encoding": {
+                "image": {
+                  "contentType": "image/jpeg, image/png, image/webp"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respons ScanResponse mentah. Status domain `invalid_image` dan `multiple_objects` tetap HTTP 200.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanResponse"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "Sukses (fixture Android waste_scan_success.json)",
+                    "value": {
+                      "status": "success",
+                      "message": null,
+                      "identification": {
+                        "object_name": "Botol Plastik Minuman",
+                        "material": "Plastik",
+                        "category": "Anorganik",
+                        "recyclable": true,
+                        "recycling_status": "conditionally_recyclable",
+                        "tags": [
+                          "Plastik",
+                          "Anorganik",
+                          "Potensi Daur Ulang"
+                        ],
+                        "description": "Botol plastik bekas yang memerlukan pemeriksaan material.",
+                        "requires_verification": true,
+                        "verification_note": "Periksa kode material pada kemasan dan ketentuan fasilitas.",
+                        "hazardous": false
+                      },
+                      "handling_steps": [
+                        "Kosongkan sisa isi botol.",
+                        "Bilas bila diperlukan dan aman, lalu keringkan.",
+                        "Pisahkan sesuai ketentuan mitra."
+                      ],
+                      "upcycling": {
+                        "possible": true,
+                        "reason": null,
+                        "ideas": [
+                          {
+                            "title": "Pot Tanaman Mini",
+                            "description": "Ubah botol bekas menjadi wadah tanaman.",
+                            "difficulty": "Mudah",
+                            "tools_and_materials": [
+                              "Botol bekas",
+                              "Tanah",
+                              "Bibit",
+                              "Gunting"
+                            ],
+                            "steps": [
+                              "Bersihkan dan keringkan botol.",
+                              "Potong botol dan rapikan tepinya.",
+                              "Buat lubang drainase dan isi tanah.",
+                              "Tanam bibit."
+                            ],
+                            "safety_warning": "Gunakan alat tajam dengan hati-hati dan dengan pendampingan orang dewasa untuk anak-anak."
+                          }
+                        ]
+                      },
+                      "industrial_recycling": {
+                        "possible": true,
+                        "description": "Plastik tertentu dapat dipilah dan diolah menjadi bahan baku baru.",
+                        "potential_products": [
+                          "Pelet plastik"
+                        ],
+                        "limitations": [
+                          "Bergantung pada material dan fasilitas yang tersedia."
+                        ]
+                      },
+                      "deposit_recommendation": {
+                        "recommended": true,
+                        "partner_type": "Bank Sampah",
+                        "search_keyword": "Bank sampah botol plastik",
+                        "preparation_note": "Pastikan botol kosong dan bersih."
+                      }
+                    }
+                  },
+                  "invalid_image": {
+                    "summary": "Domain: gambar tidak dapat dianalisis (HTTP 200)",
+                    "value": {
+                      "status": "invalid_image",
+                      "message": "Foto tidak jelas. Ambil ulang foto satu objek sampah dengan pencahayaan cukup.",
+                      "identification": null,
+                      "handling_steps": [],
+                      "upcycling": {
+                        "possible": false,
+                        "reason": "Objek tidak dapat dikenali sehingga tidak ada panduan yang aman.",
+                        "ideas": []
+                      },
+                      "industrial_recycling": null,
+                      "deposit_recommendation": null
+                    }
+                  },
+                  "multiple_objects": {
+                    "summary": "Domain: banyak objek (HTTP 200)",
+                    "value": {
+                      "status": "multiple_objects",
+                      "message": "Terdapat beberapa objek pada foto. Ambil ulang foto satu objek sampah saja.",
+                      "identification": null,
+                      "handling_steps": [],
+                      "upcycling": {
+                        "possible": false,
+                        "reason": "Objek tidak dapat dikenali sehingga tidak ada panduan yang aman.",
+                        "ideas": []
+                      },
+                      "industrial_recycling": null,
+                      "deposit_recommendation": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "408": {
+            "$ref": "#/components/responses/Error408"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error504"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ScanResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "enum": [
+              "success",
+              "invalid_image",
+              "multiple_objects"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "maxLength": 900,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "identification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Identification"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "handling_steps": {
+            "items": {
+              "maxLength": 900,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 6,
+            "title": "Handling Steps",
+            "type": "array"
+          },
+          "upcycling": {
+            "$ref": "#/components/schemas/Upcycling"
+          },
+          "industrial_recycling": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IndustrialRecycling"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deposit_recommendation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DepositRecommendation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "identification",
+          "handling_steps",
+          "upcycling",
+          "industrial_recycling",
+          "deposit_recommendation"
+        ],
+        "title": "ScanResponse",
+        "type": "object",
+        "description": "Respons mentah HTTP 200 (bukan pembungkus Go `{data,...}`). Semua field wajib ada; nilai kosong dikirim sebagai null atau array kosong. Validator semantik (tidak terwakili JSON Schema): (1) status selain `success` mensyaratkan `message` tidak kosong, `identification`, `industrial_recycling`, `deposit_recommendation` null, `handling_steps` kosong, `upcycling.possible=false` dan `upcycling.ideas` kosong. (2) `success` mensyaratkan identification dengan object_name, category, dan description terisi; handling_steps tidak kosong; industrial_recycling dan deposit_recommendation tidak null; industrial_recycling.description terisi. (3) Limbah `hazardous=true` tidak boleh punya panduan upcycling. (4) Jika object_name+material memuat 'baterai', 'battery', 'aki ', 'jarum suntik', 'limbah medis', 'pestisida', 'limbah elektronik', atau 'komponen elektronik' (tanpa memperhatikan huruf besar/kecil), hazardous harus true dan ideas kosong. (5) Jika requires_verification=true atau material=null, judul/deskripsi ide tidak boleh memuat 'wadah makanan', 'air minum', 'gelas minum', atau 'botol minum'. (6) recycling_status=non_recyclable melarang industrial_recycling.possible=true. (7) recycling_status=conditionally_recyclable mensyaratkan industrial_recycling.limitations tidak kosong. String di-strip spasi sebelum batas panjang dihitung; mode strict (tanpa koersi tipe)."
+      },
+      "DepositRecommendation": {
+        "additionalProperties": false,
+        "properties": {
+          "recommended": {
+            "title": "Recommended",
+            "type": "boolean"
+          },
+          "partner_type": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Partner Type"
+          },
+          "search_keyword": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Search Keyword"
+          },
+          "preparation_note": {
+            "anyOf": [
+              {
+                "maxLength": 900,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preparation Note"
+          }
+        },
+        "required": [
+          "recommended",
+          "partner_type",
+          "search_keyword",
+          "preparation_note"
+        ],
+        "title": "DepositRecommendation",
+        "type": "object",
+        "description": "Validator semantik: jika `recommended=true`, `partner_type` dan `search_keyword` wajib terisi."
+      },
+      "Idea": {
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 900,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "difficulty": {
+            "enum": [
+              "Mudah",
+              "Sedang",
+              "Sulit"
+            ],
+            "title": "Difficulty",
+            "type": "string"
+          },
+          "tools_and_materials": {
+            "items": {
+              "maxLength": 160,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Tools And Materials",
+            "type": "array"
+          },
+          "steps": {
+            "items": {
+              "maxLength": 900,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 6,
+            "minItems": 3,
+            "title": "Steps",
+            "type": "array"
+          },
+          "safety_warning": {
+            "maxLength": 900,
+            "minLength": 1,
+            "title": "Safety Warning",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "difficulty",
+          "tools_and_materials",
+          "steps",
+          "safety_warning"
+        ],
+        "title": "Idea",
+        "type": "object",
+        "description": "Satu panduan upcycling. Semua field wajib; keunikan judul per respons ditegakkan di Upcycling."
+      },
+      "Identification": {
+        "additionalProperties": false,
+        "properties": {
+          "object_name": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Name"
+          },
+          "material": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Material"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "enum": [
+                  "Organik",
+                  "Anorganik",
+                  "B3",
+                  "Residu",
+                  "Tidak Diketahui"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "recyclable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recyclable"
+          },
+          "recycling_status": {
+            "enum": [
+              "recyclable",
+              "conditionally_recyclable",
+              "non_recyclable",
+              "unknown"
+            ],
+            "title": "Recycling Status",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "maxLength": 160,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 5,
+            "title": "Tags",
+            "type": "array"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 900,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "requires_verification": {
+            "title": "Requires Verification",
+            "type": "boolean"
+          },
+          "verification_note": {
+            "anyOf": [
+              {
+                "maxLength": 900,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verification Note"
+          },
+          "hazardous": {
+            "title": "Hazardous",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "object_name",
+          "material",
+          "category",
+          "recyclable",
+          "recycling_status",
+          "tags",
+          "description",
+          "requires_verification",
+          "verification_note",
+          "hazardous"
+        ],
+        "title": "Identification",
+        "type": "object",
+        "description": "Validator semantik: `recyclable` harus true untuk recyclable/conditionally_recyclable, false untuk non_recyclable, null untuk unknown; `requires_verification=true` mensyaratkan `verification_note` terisi; category `B3` mensyaratkan hazardous=true; recycling_status `unknown` mensyaratkan requires_verification=true."
+      },
+      "IndustrialRecycling": {
+        "additionalProperties": false,
+        "properties": {
+          "possible": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Possible"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 900,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "potential_products": {
+            "items": {
+              "maxLength": 160,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 6,
+            "title": "Potential Products",
+            "type": "array"
+          },
+          "limitations": {
+            "items": {
+              "maxLength": 900,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 6,
+            "title": "Limitations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "possible",
+          "description",
+          "potential_products",
+          "limitations"
+        ],
+        "title": "IndustrialRecycling",
+        "type": "object",
+        "description": "Validator semantik: jika `possible` bukan true, `potential_products` harus kosong."
+      },
+      "Upcycling": {
+        "additionalProperties": false,
+        "properties": {
+          "possible": {
+            "title": "Possible",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 900,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "ideas": {
+            "items": {
+              "$ref": "#/components/schemas/Idea"
+            },
+            "maxItems": 3,
+            "title": "Ideas",
+            "type": "array"
+          }
+        },
+        "required": [
+          "possible",
+          "reason",
+          "ideas"
+        ],
+        "title": "Upcycling",
+        "type": "object",
+        "description": "Validator semantik: `possible` harus sama dengan (ideas tidak kosong); `reason` wajib terisi jika possible=false; judul ide harus unik tanpa memperhatikan huruf besar/kecil."
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "title": "ErrorResponse",
+        "additionalProperties": false,
+        "required": [
+          "error"
+        ],
+        "description": "Pembungkus error operasional. Bukan bagian dari schema.py; bentuk dari main.py `error_response`. Pesan provider mentah tidak pernah dikembalikan.",
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "invalid_upload",
+                  "invalid_scan_id",
+                  "missing_image",
+                  "upload_timeout",
+                  "scan_id_conflict",
+                  "image_too_large",
+                  "unsupported_upload",
+                  "unsupported_image",
+                  "rate_limit",
+                  "provider_rate_limit",
+                  "internal_error",
+                  "provider_error",
+                  "truncated_response",
+                  "invalid_ai_response",
+                  "busy",
+                  "missing_api_key",
+                  "invalid_api_key",
+                  "model_unavailable",
+                  "provider_network",
+                  "provider_timeout"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "description": "Pesan Bahasa Indonesia yang aman ditampilkan."
+              }
+            }
+          }
+        }
+      }
+    },
+    "headers": {
+      "CacheControl": {
+        "description": "Selalu `no-store`.",
+        "schema": {
+          "type": "string",
+          "const": "no-store"
+        }
+      },
+      "RetryAfter": {
+        "description": "Detik tunggu (bilangan bulat). Hanya ada bila server menetapkan retry_after: rate_limit=60, busy=5, provider_rate_limit=1..3600.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600
+        }
+      }
+    },
+    "responses": {
+      "Error400": {
+        "description": "Permintaan multipart/ID pemindaian tidak valid. Catatan: rute atau metode tak dikenal dan error validasi FastAPI juga dipetakan ke `invalid_upload` oleh handler.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "invalid_upload": {
+                "summary": "invalid_upload",
+                "value": {
+                  "error": {
+                    "code": "invalid_upload",
+                    "message": "Kirim satu foto pada field image menggunakan multipart/form-data."
+                  }
+                }
+              },
+              "invalid_scan_id": {
+                "summary": "invalid_scan_id",
+                "value": {
+                  "error": {
+                    "code": "invalid_scan_id",
+                    "message": "Identitas pemindaian tidak valid. Mulai pemindaian baru."
+                  }
+                }
+              },
+              "missing_image": {
+                "summary": "missing_image",
+                "value": {
+                  "error": {
+                    "code": "missing_image",
+                    "message": "Pilih satu foto sampah terlebih dahulu."
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Error408": {
+        "description": "Badan permintaan tidak selesai diterima dalam 20 detik.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "upload_timeout": {
+                "summary": "upload_timeout",
+                "value": {
+                  "error": {
+                    "code": "upload_timeout",
+                    "message": "Unggahan terlalu lama. Periksa koneksi lalu coba lagi."
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Error409": {
+        "description": "X-Scan-Id yang sama dari IP klien yang sama dipakai dengan byte gambar berbeda.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "scan_id_conflict": {
+                "summary": "scan_id_conflict",
+                "value": {
+                  "error": {
+                    "code": "scan_id_conflict",
+                    "message": "Foto telah berubah. Buka pemindaian baru untuk melanjutkan."
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Error413": {
+        "description": "Gambar melebihi 10 MiB (badan permintaan maks 10 MiB + 64 KiB), atau melebihi 25 megapiksel.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "image_too_large": {
+                "summary": "image_too_large",
+                "value": {
+                  "error": {
+                    "code": "image_too_large",
+                    "message": "Gunakan gambar berukuran maksimal 10 MB."
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Error415": {
+        "description": "Content-Type bukan multipart/form-data, atau gambar kosong/rusak/format tidak didukung/beranimasi.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "unsupported_upload": {
+                "summary": "unsupported_upload",
+                "value": {
+                  "error": {
+                    "code": "unsupported_upload",
+                    "message": "Unggah satu foto menggunakan multipart/form-data."
+                  }
+                }
+              },
+              "unsupported_image": {
+                "summary": "unsupported_image",
+                "value": {
+                  "error": {
+                    "code": "unsupported_image",
+                    "message": "Gunakan gambar JPEG, PNG, atau WebP."
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Error429": {
+        "description": "Batas laju IP/global atau kuota provider tercapai. Periksa header Retry-After. `rate_limit`: Retry-After 60 (juga bila >4096 IP terlacak); `provider_rate_limit`: Retry-After 1-3600 dari provider.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          },
+          "Retry-After": {
+            "$ref": "#/components/headers/RetryAfter"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "rate_limit": {
+                "summary": "rate_limit",
+                "value": {
+                  "error": {
+                    "code": "rate_limit",
+                    "message": "Terlalu banyak pemindaian. Tunggu satu menit lalu coba lagi."
+                  }
+                }
+              },
+              "provider_rate_limit": {
+                "summary": "provider_rate_limit",
+                "value": {
+                  "error": {
+                    "code": "provider_rate_limit",
+                    "message": "Batas layanan AI sedang tercapai. Coba lagi setelah beberapa saat."
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Error500": {
+        "description": "Kesalahan internal tak terduga.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "internal_error": {
+                "summary": "internal_error",
+                "value": {
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Pemindaian belum dapat diproses. Silakan coba lagi."
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Error502": {
+        "description": "Provider AI gagal, hasil terpotong, atau keluaran tidak valid terhadap ScanResponse.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "provider_error": {
+                "summary": "provider_error",
+                "value": {
+                  "error": {
+                    "code": "provider_error",
+                    "message": "Layanan AI sedang mengalami gangguan. Silakan coba lagi."
+                  }
+                }
+              },
+              "truncated_response": {
+                "summary": "truncated_response",
+                "value": {
+                  "error": {
+                    "code": "truncated_response",
+                    "message": "Hasil analisis terpotong. Silakan coba lagi."
+                  }
+                }
+              },
+              "invalid_ai_response": {
+                "summary": "invalid_ai_response",
+                "value": {
+                  "error": {
+                    "code": "invalid_ai_response",
+                    "message": "Hasil analisis belum valid. Silakan coba lagi dengan foto yang jelas."
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Error503": {
+        "description": "Layanan sibuk, belum dikonfigurasi, kunci/model provider bermasalah, atau jaringan ke provider gagal. `Retry-After` hanya dikirim untuk `busy` (5).",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          },
+          "Retry-After": {
+            "$ref": "#/components/headers/RetryAfter"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "busy": {
+                "summary": "busy",
+                "value": {
+                  "error": {
+                    "code": "busy",
+                    "message": "Layanan sedang sibuk. Coba lagi sebentar."
+                  }
+                }
+              },
+              "missing_api_key": {
+                "summary": "missing_api_key",
+                "value": {
+                  "error": {
+                    "code": "missing_api_key",
+                    "message": "Layanan analisis belum dikonfigurasi. Hubungi pengelola EcoSnap."
+                  }
+                }
+              },
+              "invalid_api_key": {
+                "summary": "invalid_api_key",
+                "value": {
+                  "error": {
+                    "code": "invalid_api_key",
+                    "message": "Layanan AI belum dapat digunakan. Hubungi pengelola EcoSnap."
+                  }
+                }
+              },
+              "model_unavailable": {
+                "summary": "model_unavailable",
+                "value": {
+                  "error": {
+                    "code": "model_unavailable",
+                    "message": "Model analisis belum tersedia atau konfigurasinya perlu diperiksa oleh pengelola."
+                  }
+                }
+              },
+              "provider_network": {
+                "summary": "provider_network",
+                "value": {
+                  "error": {
+                    "code": "provider_network",
+                    "message": "Layanan AI belum dapat dihubungi. Coba lagi sebentar."
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Error504": {
+        "description": "Waktu pemrosesan (85 detik, termasuk antrean) atau pembacaan provider (65 detik) habis.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "provider_timeout": {
+                "summary": "provider_timeout",
+                "value": {
+                  "error": {
+                    "code": "provider_timeout",
+                    "message": "Analisis membutuhkan waktu lebih lama. Silakan coba lagi."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

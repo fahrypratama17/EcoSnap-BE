@@ -12,6 +12,8 @@ Perbaikan latensi Home/misi mempertahankan deadline 5 detik dan satu snapshot, t
 
 **Paket integrasi:** [OpenAPI 3.0.3](openapi.yaml) mencakup semua 46 route untuk acuan DTO/client. Impor [koleksi Postman](ecosnap.postman_collection.json) dan [environment kosong](ecosnap.postman_environment.json), lalu ikuti [panduan Postman](postman.md) untuk token dua peran, urutan flow, replay idempotency, dan efek samping. Jangan menjalankan seluruh koleksi pada database nyata; registrasi dan helper intent baru dipilih manual.
 
+**Kontrak model AI (service terpisah):** [Panduan scan dan DTO](ai-scan.md) serta [OpenAPI 3.1 JSON](ai-scan.openapi.json). Implementasinya ada di repo **EcoSnap-FE**, branch **`13-feat/ai-waste-scan`**, folder `backend/`: FastAPI port **8000**, `POST /api/scan`, provider Groq dengan model `qwen/qwen3.8-27b`. Service ini **bukan bagian dari 46 route Go port 8080**; aturan Firebase Bearer, envelope respons, dan deadline Go di bawah tidak berlaku padanya. Autentikasi Firebase dan penyimpanan riwayat scan belum terintegrasi.
+
 ## 1. Alamat server
 
 | Lingkungan | Base URL |
@@ -199,7 +201,7 @@ Aturan retry: 5xx/504/jaringan putus → ulangi dengan **key/token yang sama** (
 
 ## 7. Belum tersedia
 
-Tidak ada endpoint untuk scan/foto sampah (menunggu model AI, Q-06), game dan misi game (ditunda, D-24), push notification, upload foto profil, banding/refund, penghapusan akun, dan persetujuan mitra dari aplikasi (CLI pemilik, D-21). Kontrak statistik/PDF, tiket bantuan dan inbox tersedia di atas; runtime Supabase/Android belum dibuktikan untuk fitur baru. Data tarif, reward, artikel, dan FAQ saat ini **data demo**.
+Backend Go belum menyediakan endpoint scan/foto sampah; implementasi AI dan kontraknya tersedia sebagai [service FastAPI terpisah](ai-scan.md), belum terhubung ke autentikasi/riwayat Go. Game dan misi game (ditunda, D-24), push notification, upload foto profil, banding/refund, penghapusan akun, dan persetujuan mitra dari aplikasi (CLI pemilik, D-21) juga belum tersedia. Kontrak statistik/PDF, tiket bantuan dan inbox tersedia di atas; runtime Supabase/Android belum dibuktikan untuk fitur baru. Data tarif, reward, artikel, dan FAQ saat ini **data demo**.
 
 ## 8. Menjalankan dan menguji backend
 
